@@ -19,6 +19,8 @@ Plazo de entrega: **2026-10-05 12:00 (hora Colombia, UTC-5)**. Se evalúa el úl
 4. Nada de secretos en el repo: usar `.env` (ignorado por git) y mantener `.env.example` actualizado.
 5. `harness/context/` (material privado del enunciado) no se publica ni se copia literalmente a archivos versionados; descríbelo con tus propias palabras.
 6. Todo en español.
+7. `harness/_gen_checksums.py` solo lo ejecuta el humano; ningún agente lo ejecuta.
+8. El enunciado se lee en `harness/context/enunciado.md` (texto), no en el PDF.
 
 ## Estructura del repo
 | Ruta | Propósito |
@@ -32,7 +34,7 @@ Plazo de entrega: **2026-10-05 12:00 (hora Colombia, UTC-5)**. Se evalúa el úl
 | `harness/progress/` | Un registro por sesión |
 | `harness/decisions/` | ADRs (decisiones de arquitectura) |
 | `harness/docs_checksums.json` | SHA-256 de los documentos (CRLF normalizado a LF) |
-| `harness/context/` | Enunciado privado, ignorado por git |
+| `harness/context/` | Enunciado privado (`enunciado.md`, extraído del PDF), ignorado por git |
 | `.claude/` | Subagentes, hooks y settings de Claude Code |
 | `logs/` | Trazas en runtime, ignoradas por git |
 

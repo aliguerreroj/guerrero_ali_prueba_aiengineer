@@ -30,7 +30,7 @@
       ],
       "criterios": [
         "AgentResponse con campos respuesta, accion, fuentes, canal y trace_id",
-        "accion restringida a un conjunto cerrado (p. ej. responder|escalar|rechazar)",
+        "accion restringida a un conjunto cerrado: responder | escalar | pedir_dato",
         "Chunk (texto, doc_id, metadatos) y Order (order_id, producto, estado, entrega_estimada opcional)",
         "Los modelos validan tipos y son serializables a dict/JSON"
       ],
@@ -98,18 +98,19 @@
     {
       "id": "T06",
       "fase": 1,
-      "titulo": "Embedder local multilingüe + vector store en memoria",
+      "titulo": "Recuperación híbrida",
       "estado": "pendiente",
       "prioridad": "obligatoria",
       "depende_de": [
         "T05"
       ],
       "criterios": [
-        "Embedder local multilingüe (sentence-transformers) detrás del puerto Embedder; hay un embedder determinista falso para tests",
-        "VectorStore en memoria con búsqueda por similitud coseno",
-        "Los tests no descargan modelos ni usan red"
+        "Búsqueda léxica BM25 (rank_bm25) con normalización en español (minúsculas, sin tildes)",
+        "Embedder semántico ligero con fastembed (ONNX, sin PyTorch) detrás del puerto Embedder",
+        "Embedder falso determinista para tests unitarios",
+        "Los tests no usan red ni descargan modelos"
       ],
-      "verificacion": "python -m pytest tests/test_vectorstore.py -q",
+      "verificacion": "python -m pytest tests/test_hybrid_retrieval.py -q",
       "revisado_por_revisor": false,
       "notas": ""
     },
@@ -125,7 +126,9 @@
       "criterios": [
         "Parámetros top_k y umbral configurables",
         "Devuelve lista vacía si ningún chunk supera el umbral",
-        "Una pregunta clara de garantía recupera doc1 en primer lugar",
+        "Una pregunta clara de garantía recupera doc1 en primer lugar, probado sobre BM25 (determinista, sin red)",
+        "Fusión de resultados léxico + semántico con Reciprocal Rank Fusion",
+        "Test marcado @pytest.mark.integration que valida el embedder semántico real; se omite por defecto",
         "Resultados ordenados por score y con la fuente"
       ],
       "verificacion": "python -m pytest tests/test_retriever.py -q",
@@ -146,7 +149,9 @@
         "Detecta quejas sobre trato de empleados, disputas de facturación y temas legales",
         "Detecta prompt injection y pedidos de ignorar instrucciones",
         "Escalar remite a soporte@tiendahogar.example con accion=escalar",
-        "Casos trampa: montos con formato ($1,200 / 800 dólares), mayúsculas, tildes ausentes"
+        "Casos trampa: montos con formato ($1,200 / 800 dólares), mayúsculas, tildes ausentes",
+        "Un monto alto sin contexto de reembolso no escala",
+        "Precedencia: si el mensaje mezcla un tema escalable con otro que no lo es, se escala"
       ],
       "verificacion": "python -m pytest tests/test_guardrail_input.py -q",
       "revisado_por_revisor": false,
@@ -164,7 +169,8 @@
       "criterios": [
         "Enmascara correos, teléfonos y números de tarjeta antes de logs/LLM",
         "No enmascara ids de pedido (ORD-####)",
-        "Es idempotente"
+        "Es idempotente",
+        "No enmascara montos de dinero"
       ],
       "verificacion": "python -m pytest tests/test_pii.py -q",
       "revisado_por_revisor": false,
@@ -238,7 +244,9 @@
       "criterios": [
         "Prompts del sistema en archivos versionados en src/",
         "Guía de tono: natural, empático, orientado a solución, tuteo",
-        "Instrucción explícita de no inventar información"
+        "Instrucción explícita de no inventar información",
+        "Orientación a solución: antes de decir no, buscar alternativas válidas dentro de los documentos",
+        "Pedir con amabilidad los datos faltantes (id de pedido, fecha de compra)"
       ],
       "verificacion": "python -m pytest tests/test_prompts.py -q",
       "revisado_por_revisor": false,
@@ -247,7 +255,7 @@
     {
       "id": "T14",
       "fase": 3,
-      "titulo": "Orquestador con tool use y tool final 'responder'",
+      "titulo": "Orquestador con tool use (buscar_politicas, consultar_estado_pedido, responder)",
       "estado": "pendiente",
       "prioridad": "obligatoria",
       "depende_de": [
@@ -256,13 +264,17 @@
         "T08",
         "T10",
         "T12",
-        "T13"
+        "T13",
+        "T09",
+        "T11",
+        "T15"
       ],
       "criterios": [
-        "Bucle de tool use con consultar_estado_pedido y la tool final responder con salida estructurada (AgentResponse)",
+        "Bucle de tool use con las tools buscar_politicas (RAG), consultar_estado_pedido y la tool final responder con salida estructurada (AgentResponse)",
         "El guardrail de entrada corre antes del LLM",
         "La verificación de salida corre antes de entregar la respuesta",
-        "Con FakeLLM el flujo completo es determinista"
+        "Con FakeLLM el flujo completo es determinista",
+        "Límite máximo de iteraciones del bucle, configurable"
       ],
       "verificacion": "python -m pytest tests/test_orchestrator.py -q",
       "revisado_por_revisor": false,
@@ -331,8 +343,15 @@
         "T14"
       ],
       "criterios": [
-        "Archivo de casos (pregunta, acción esperada, fuentes esperadas) versionado",
-        "Incluye reembolso 500 vs 501, pedido inexistente, producto fuera de catálogo, prompt injection"
+        "Archivo de casos versionado; cada caso con pregunta, acción esperada, debe_contener y no_debe_contener",
+        "Caso: lavadora con defecto después de 30 días (camino por garantía)",
+        "Caso: envío internacional (no disponible)",
+        "Caso: producto en liquidación (no admite devolución)",
+        "Caso: ORD-1002 entregado, sin inventar fecha de entrega",
+        "Caso: montos en letras y con formato (reembolso 500 vs 501, 'ochocientos dólares', '$1.200')",
+        "Caso: mezcla de temas (uno escalable y otro no)",
+        "Caso: producto no listado (microondas)",
+        "Se mantienen: pedido inexistente y prompt injection"
       ],
       "verificacion": "python -m pytest tests/test_golden_set.py -q",
       "revisado_por_revisor": false,
@@ -350,7 +369,9 @@
       "criterios": [
         "Runner ejecutable con python harness/init.py --full",
         "Reporta precisión por categoría",
-        "Script/proceso documentado para calibrar el umbral de recuperación"
+        "Script/proceso documentado para calibrar el umbral de recuperación",
+        "Los evals con LLM real solo corren con --full y con API key presente; sin key se omiten con aviso",
+        "python harness/init.py sin --full nunca llama a la API"
       ],
       "verificacion": "python -m pytest tests/test_evals.py -q",
       "revisado_por_revisor": false,
