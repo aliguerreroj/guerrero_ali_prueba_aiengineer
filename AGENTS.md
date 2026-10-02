@@ -14,13 +14,14 @@ Plazo de entrega: **2026-10-05 12:00 (hora Colombia, UTC-5)**. Se evalúa el úl
 
 ## Reglas no negociables
 1. La firma de la tool es exactamente `consultar_estado_pedido(order_id: str) -> dict`.
-2. **Prohibido editar `data/docs/`** (ni `harness/docs_checksums.json`). Los hooks lo bloquean.
+2. **Prohibido modificar `data/docs/`, `harness/docs_checksums.json`, `harness/context/` y `.env` POR CUALQUIER MEDIO** (incluido Bash), no solo con Edit/Write. Los hooks cubren Edit/Write; el checksum de `init.py` y `pre_commit_gate` cubren el resto.
 3. El agente nunca inventa información: si no hay sustento, lo dice o escala.
 4. Nada de secretos en el repo: usar `.env` (ignorado por git) y mantener `.env.example` actualizado.
 5. `harness/context/` (material privado del enunciado) no se publica ni se copia literalmente a archivos versionados; descríbelo con tus propias palabras.
 6. Todo en español.
 7. `harness/_gen_checksums.py` solo lo ejecuta el humano; ningún agente lo ejecuta.
 8. El enunciado se lee en `harness/context/enunciado.md` (texto), no en el PDF.
+9. Se trabaja solo en la tarea elegida; no se adelanta código ni dependencias de otras tareas.
 
 ## Estructura del repo
 | Ruta | Propósito |
@@ -66,11 +67,12 @@ Las rutas del repo pueden tener espacios: entrecomíllalas siempre.
 6. Solo entonces elegir **UNA** tarea (respetando `depende_de`).
 
 ## Flujo multiagente por tarea
-1. **Principal** elige la tarea.
+1. **Principal** elige la tarea y la marca como `en_progreso` en `tasks.json` al empezarla.
 2. **Lector** (`.claude/agents/lector.md`) resume el contexto relevante.
-3. **Implementador** escribe los tests primero, luego el código mínimo, y corre `python harness/init.py`.
+3. **Implementador** escribe los tests primero, luego el código mínimo, corre la `verificacion` de su tarea y `python harness/init.py`, y reporta ambos resultados.
 4. **Revisor** (contexto limpio, adversarial) responde APROBADO o RECHAZADO con hallazgos.
-5. Si rechaza, vuelve al Implementador. Si aprueba, el Principal actualiza `tasks.json`, escribe el registro en `harness/progress/` y hace commit.
+5. Si rechaza, vuelve al Implementador. Si el Revisor rechaza 3 veces la misma tarea, se detiene el ciclo, se registra en `notas` y se consulta al humano.
+6. Si aprueba, el Principal marca la tarea como `hecha`, escribe el registro en `harness/progress/` y hace commit.
 
 ## Definición de «terminado»
 La verificación de la tarea pasa, `python harness/init.py` está en verde y el revisor aprobó.
@@ -83,7 +85,7 @@ La verificación de la tarea pasa, `python harness/init.py` está en verde y el 
 ## Principios de diseño de la app
 - **Puertos y adaptadores**: el dominio depende de interfaces (LLMClient, Embedder, VectorStore, DocumentSource, OrderRepository, EventBus); los SDKs viven en adaptadores.
 - **Guardrails en capas**: reglas deterministas → clasificador LLM → verificación de salida.
-- **El sistema decide, el LLM redacta**: escalar/rechazar lo decide código, no el modelo.
+- **El sistema decide, el LLM redacta**: la acción (responder | escalar | pedir_dato) la decide el código, no el modelo.
 - **Tono**: natural, empático, orientado a solución, tuteo.
 - **Tests deterministas** con `FakeLLM`: sin API key ni red.
 - Fallo seguro = escalar a humano.
