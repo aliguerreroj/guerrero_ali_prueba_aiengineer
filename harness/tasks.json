@@ -23,7 +23,7 @@
       "id": "T02",
       "fase": 1,
       "titulo": "Modelos de dominio",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T01"
@@ -35,8 +35,8 @@
         "Los modelos validan tipos y son serializables a dict/JSON"
       ],
       "verificacion": "python -m pytest tests/test_models.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: APROBADO (1.ª vez). Modelos pydantic v2 en modo no estricto; permiten campos extra (ignorados) y canal es str | None."
     },
     {
       "id": "T03",
