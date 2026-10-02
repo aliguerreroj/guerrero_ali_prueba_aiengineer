@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Secretos
+.env
+
+# Material privado de la prueba (no se publica)
+harness/context/
+
+# Trazas del agente en runtime
+logs/
+
+# Configuración local de Claude Code
+.claude/settings.local.json

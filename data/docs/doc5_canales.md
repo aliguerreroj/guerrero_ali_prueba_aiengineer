@@ -1,0 +1,3 @@
+# Doc 5 — Canales de contacto
+
+Para quejas sobre el trato de un empleado, disputas de facturación, o cualquier tema legal, el cliente debe ser referido a un agente humano en soporte@tiendahogar.example — el asistente de IA no debe intentar resolver estos casos.
