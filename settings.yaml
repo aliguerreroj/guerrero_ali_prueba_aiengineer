@@ -1,0 +1,9 @@
+# Valores por defecto de la aplicación. Las variables de entorno tienen prioridad.
+# Aquí NUNCA van claves secretas.
+llm_provider: fake
+llm_model: claude-sonnet-4-5
+top_k: 4
+umbral_recuperacion: 0.3
+umbral_reembolso: 500
+timeout_llm_s: 30
+timeout_tool_s: 5

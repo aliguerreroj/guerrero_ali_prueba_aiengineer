@@ -6,7 +6,7 @@
       "id": "T01",
       "fase": 1,
       "titulo": "Configuración",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [],
       "criterios": [
@@ -16,8 +16,8 @@
         "Ninguna clave secreta tiene valor por defecto ni aparece en el repo"
       ],
       "verificacion": "python -m pytest tests/test_config.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: APROBADO (1.ª vez). Valores por defecto de modelo, top_k, umbral_recuperacion y timeouts elegidos por el implementador; ajustables en settings.yaml."
     },
     {
       "id": "T02",

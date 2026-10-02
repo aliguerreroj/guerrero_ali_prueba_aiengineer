@@ -7,7 +7,7 @@ name = "tiendahogar-agent"
 version = "0.1.0"
 description = "Agente de soporte al cliente de TiendaHogar (RAG + tool de pedidos + guardrails)"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["pydantic-settings>=2.2", "pyyaml>=6.0"]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
