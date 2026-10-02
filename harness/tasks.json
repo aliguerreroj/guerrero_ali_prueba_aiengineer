@@ -1,0 +1,516 @@
+{
+  "proyecto": "tiendahogar-agent — prueba técnica AI Engineer Senior",
+  "plazo": "2026-10-05T12:00:00-05:00",
+  "tareas": [
+    {
+      "id": "T01",
+      "fase": 1,
+      "titulo": "Configuración",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [],
+      "criterios": [
+        "Existe settings.yaml con valores por defecto (modelo, top_k, umbral de recuperación, umbral de reembolso=500, timeouts)",
+        "Clase Settings (pydantic-settings) que lee settings.yaml y variables de entorno, con el entorno por encima del YAML",
+        "LLM_PROVIDER=fake es un valor válido y es el predeterminado",
+        "Ninguna clave secreta tiene valor por defecto ni aparece en el repo"
+      ],
+      "verificacion": "python -m pytest tests/test_config.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T02",
+      "fase": 1,
+      "titulo": "Modelos de dominio",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T01"
+      ],
+      "criterios": [
+        "AgentResponse con campos respuesta, accion, fuentes, canal y trace_id",
+        "accion restringida a un conjunto cerrado (p. ej. responder|escalar|rechazar)",
+        "Chunk (texto, doc_id, metadatos) y Order (order_id, producto, estado, entrega_estimada opcional)",
+        "Los modelos validan tipos y son serializables a dict/JSON"
+      ],
+      "verificacion": "python -m pytest tests/test_models.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T03",
+      "fase": 1,
+      "titulo": "Puertos/interfaces",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T02"
+      ],
+      "criterios": [
+        "Protocolos/ABC: LLMClient, Embedder, VectorStore, DocumentSource, OrderRepository, EventBus",
+        "El dominio solo depende de los puertos, nunca de SDKs concretos",
+        "Cada puerto tiene al menos un doble de prueba utilizable en tests"
+      ],
+      "verificacion": "python -m pytest tests/test_ports.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T04",
+      "fase": 1,
+      "titulo": "Tool consultar_estado_pedido + OrderRepository mock",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T03"
+      ],
+      "criterios": [
+        "Firma exacta: consultar_estado_pedido(order_id: str) -> dict",
+        "Tabla mock con ORD-1001..ORD-1004 según el enunciado; '—' se representa como null",
+        "Normaliza el id (mayúsculas, espacios) y valida el formato",
+        "Id inexistente o mal formado retorna un estado explícito 'no encontrado'/inválido sin inventar datos",
+        "Nunca lanza excepción por entradas raras (None, vacío, tipos erróneos)"
+      ],
+      "verificacion": "python -m pytest tests/test_order_tool.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T05",
+      "fase": 1,
+      "titulo": "Loader + chunker",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T03"
+      ],
+      "criterios": [
+        "Carga los 5 documentos de data/docs/ vía DocumentSource",
+        "Estrategias de chunking none/fixed/recursive/auto configurables; auto elige none para documentos cortos",
+        "Cada chunk lleva metadatos (doc_id, título, posición)",
+        "No modifica los archivos fuente"
+      ],
+      "verificacion": "python -m pytest tests/test_loader_chunker.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T06",
+      "fase": 1,
+      "titulo": "Embedder local multilingüe + vector store en memoria",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T05"
+      ],
+      "criterios": [
+        "Embedder local multilingüe (sentence-transformers) detrás del puerto Embedder; hay un embedder determinista falso para tests",
+        "VectorStore en memoria con búsqueda por similitud coseno",
+        "Los tests no descargan modelos ni usan red"
+      ],
+      "verificacion": "python -m pytest tests/test_vectorstore.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T07",
+      "fase": 1,
+      "titulo": "Retriever con top_k y umbral",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T06"
+      ],
+      "criterios": [
+        "Parámetros top_k y umbral configurables",
+        "Devuelve lista vacía si ningún chunk supera el umbral",
+        "Una pregunta clara de garantía recupera doc1 en primer lugar",
+        "Resultados ordenados por score y con la fuente"
+      ],
+      "verificacion": "python -m pytest tests/test_retriever.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T08",
+      "fase": 2,
+      "titulo": "Guardrail de entrada determinista",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T02"
+      ],
+      "criterios": [
+        "Detecta reembolsos mayores al umbral configurable (500) y no escala los menores o iguales",
+        "Detecta quejas sobre trato de empleados, disputas de facturación y temas legales",
+        "Detecta prompt injection y pedidos de ignorar instrucciones",
+        "Escalar remite a soporte@tiendahogar.example con accion=escalar",
+        "Casos trampa: montos con formato ($1,200 / 800 dólares), mayúsculas, tildes ausentes"
+      ],
+      "verificacion": "python -m pytest tests/test_guardrail_input.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T09",
+      "fase": 2,
+      "titulo": "Enmascarado de PII",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T02"
+      ],
+      "criterios": [
+        "Enmascara correos, teléfonos y números de tarjeta antes de logs/LLM",
+        "No enmascara ids de pedido (ORD-####)",
+        "Es idempotente"
+      ],
+      "verificacion": "python -m pytest tests/test_pii.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T10",
+      "fase": 2,
+      "titulo": "Verificación de salida",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T07"
+      ],
+      "criterios": [
+        "Rechaza respuestas sin sustento en el contexto recuperado o en la tabla de pedidos",
+        "Toda cifra de la respuesta debe aparecer en el contexto",
+        "Si falla, el sistema cae a escalar o a respuesta segura"
+      ],
+      "verificacion": "python -m pytest tests/test_guardrail_output.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T11",
+      "fase": 2,
+      "titulo": "Resiliencia",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T03"
+      ],
+      "criterios": [
+        "Timeouts y reintentos configurables en los adaptadores LLM",
+        "Ante fallo del LLM o del retriever, el fallo seguro es escalar a humano",
+        "Los errores se registran sin filtrar PII"
+      ],
+      "verificacion": "python -m pytest tests/test_resilience.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T12",
+      "fase": 3,
+      "titulo": "Adaptadores LLM",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T03",
+        "T11"
+      ],
+      "criterios": [
+        "Adaptador Anthropic (SDK) detrás de LLMClient",
+        "FakeLLM determinista sin red ni API key",
+        "Adaptador Azure OpenAI probado con mock",
+        "El proveedor se elige por configuración"
+      ],
+      "verificacion": "python -m pytest tests/test_llm_adapters.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T13",
+      "fase": 3,
+      "titulo": "Prompts y guía de tono",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T01"
+      ],
+      "criterios": [
+        "Prompts del sistema en archivos versionados en src/",
+        "Guía de tono: natural, empático, orientado a solución, tuteo",
+        "Instrucción explícita de no inventar información"
+      ],
+      "verificacion": "python -m pytest tests/test_prompts.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T14",
+      "fase": 3,
+      "titulo": "Orquestador con tool use y tool final 'responder'",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T04",
+        "T07",
+        "T08",
+        "T10",
+        "T12",
+        "T13"
+      ],
+      "criterios": [
+        "Bucle de tool use con consultar_estado_pedido y la tool final responder con salida estructurada (AgentResponse)",
+        "El guardrail de entrada corre antes del LLM",
+        "La verificación de salida corre antes de entregar la respuesta",
+        "Con FakeLLM el flujo completo es determinista"
+      ],
+      "verificacion": "python -m pytest tests/test_orchestrator.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T15",
+      "fase": 3,
+      "titulo": "Clasificador de intención",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T12"
+      ],
+      "criterios": [
+        "Clasifica intención (política, pedido, escalamiento, fuera de alcance)",
+        "Capa LLM tras las reglas deterministas; con FakeLLM es determinista"
+      ],
+      "verificacion": "python -m pytest tests/test_intent.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T16",
+      "fase": 3,
+      "titulo": "CLI de chat",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "Comando documentado para chatear en terminal",
+        "Funciona con LLM_PROVIDER=fake sin red",
+        "Muestra fuentes y acción"
+      ],
+      "verificacion": "python -m pytest tests/test_cli.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T17",
+      "fase": 4,
+      "titulo": "Trazas JSONL con tokens y costo",
+      "estado": "pendiente",
+      "prioridad": "recomendada",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "Una línea JSONL por interacción en logs/ con trace_id, acción, tokens y costo estimado",
+        "PII enmascarada en las trazas",
+        "logs/ sigue ignorado por git"
+      ],
+      "verificacion": "python -m pytest tests/test_tracing.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T18",
+      "fase": 4,
+      "titulo": "Golden set de casos trampa",
+      "estado": "pendiente",
+      "prioridad": "recomendada",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "Archivo de casos (pregunta, acción esperada, fuentes esperadas) versionado",
+        "Incluye reembolso 500 vs 501, pedido inexistente, producto fuera de catálogo, prompt injection"
+      ],
+      "verificacion": "python -m pytest tests/test_golden_set.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T19",
+      "fase": 4,
+      "titulo": "Runner de evals + calibración del umbral",
+      "estado": "pendiente",
+      "prioridad": "recomendada",
+      "depende_de": [
+        "T18"
+      ],
+      "criterios": [
+        "Runner ejecutable con python harness/init.py --full",
+        "Reporta precisión por categoría",
+        "Script/proceso documentado para calibrar el umbral de recuperación"
+      ],
+      "verificacion": "python -m pytest tests/test_evals.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T20",
+      "fase": 5,
+      "titulo": "API FastAPI",
+      "estado": "pendiente",
+      "prioridad": "opcional",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "Endpoint POST /chat que devuelve AgentResponse",
+        "Probado con TestClient y FakeLLM"
+      ],
+      "verificacion": "python -m pytest tests/test_api.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T21",
+      "fase": 5,
+      "titulo": "Servidor MCP con la misma tool",
+      "estado": "pendiente",
+      "prioridad": "opcional",
+      "depende_de": [
+        "T04"
+      ],
+      "criterios": [
+        "Servidor MCP expone consultar_estado_pedido con la misma implementación",
+        "Probado sin red"
+      ],
+      "verificacion": "python -m pytest tests/test_mcp.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T22",
+      "fase": 5,
+      "titulo": "Evento de escalamiento con idempotencia",
+      "estado": "pendiente",
+      "prioridad": "opcional",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "Escalar publica un evento por el puerto EventBus",
+        "Clave de idempotencia determinista: el mismo caso no duplica el evento"
+      ],
+      "verificacion": "python -m pytest tests/test_escalation_event.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T23",
+      "fase": 5,
+      "titulo": "Dockerfile + Makefile",
+      "estado": "pendiente",
+      "prioridad": "opcional",
+      "depende_de": [
+        "T16"
+      ],
+      "criterios": [
+        "Dockerfile construible y Makefile con targets install, test, lint",
+        "Documentado en README"
+      ],
+      "verificacion": "docker build -t tiendahogar-agent .",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T24",
+      "fase": 5,
+      "titulo": "GitHub Actions (ruff + pytest)",
+      "estado": "pendiente",
+      "prioridad": "opcional",
+      "depende_de": [
+        "T01"
+      ],
+      "criterios": [
+        "Workflow en .github/workflows/ que corre ruff y pytest con Python 3.11+",
+        "No requiere secretos"
+      ],
+      "verificacion": "python -m pytest tests/test_ci_workflow.py -q",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T25",
+      "fase": 6,
+      "titulo": "README con comandos exactos",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T16"
+      ],
+      "criterios": [
+        "Instalación, variables de entorno (.env.example), ejecución del agente y comando exacto de tests (python -m pytest tests/)",
+        "Comandos validados en un entorno limpio"
+      ],
+      "verificacion": "python harness/init.py",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T26",
+      "fase": 6,
+      "titulo": "SUBMISSION.md según plantilla",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T25"
+      ],
+      "criterios": [
+        "Contiene las 6 secciones de la plantilla (arquitectura, decisiones de RAG, pruebas, producción, limitaciones, tiempo invertido)",
+        "Responde chunking, embeddings y umbral con lo realmente implementado",
+        "Mapeo a producción cubre Foundry, Databricks/Unity Catalog, Apigee y Kafka"
+      ],
+      "verificacion": "python harness/init.py",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T27",
+      "fase": 6,
+      "titulo": "ADRs restantes",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T14"
+      ],
+      "criterios": [
+        "ADR por cada decisión relevante (puertos, guardrails en capas, embedder, chunking, umbral)",
+        "Siguen la plantilla de harness/decisions/"
+      ],
+      "verificacion": "python harness/init.py",
+      "revisado_por_revisor": false,
+      "notas": ""
+    },
+    {
+      "id": "T28",
+      "fase": 6,
+      "titulo": "Verificación desde un clone limpio",
+      "estado": "pendiente",
+      "prioridad": "obligatoria",
+      "depende_de": [
+        "T25",
+        "T26",
+        "T27"
+      ],
+      "criterios": [
+        "git clone en carpeta nueva, crear .venv, instalar y correr init.py y pytest en verde",
+        "Sin .env ni secretos; harness/context/ ausente del clone"
+      ],
+      "verificacion": "python harness/init.py",
+      "revisado_por_revisor": false,
+      "notas": ""
+    }
+  ]
+}
