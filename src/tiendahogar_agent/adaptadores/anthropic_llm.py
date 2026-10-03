@@ -7,6 +7,7 @@ from typing import Any
 from tiendahogar_agent.adaptadores._errores_sdk import traducir_error
 from tiendahogar_agent.config import Settings
 from tiendahogar_agent.excepciones import ErrorLLM, ErrorLLMRespuestaInvalida
+from tiendahogar_agent.mensajes import validar_historial
 from tiendahogar_agent.models import LlamadaTool, LLMResponse, UsoTokens
 
 ESQUEMA_VACIO = {"type": "object", "properties": {}}
@@ -20,6 +21,50 @@ def _traducir_tool(tool: dict[str, Any]) -> dict[str, Any]:
         "description": tool.get("description", ""),
         "input_schema": esquema,
     }
+
+
+def _traducir_mensajes(mensajes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Mensajes de dominio (sin system) -> formato Anthropic.
+
+    El asistente con tools pasa a bloques `text`/`tool_use`; los resultados `tool` consecutivos
+    se fusionan en UN mensaje `user` con bloques `tool_result` (lo exige la API).
+    """
+    salida: list[dict[str, Any]] = []
+    en_resultados = False  # el último mensaje de salida agrupa resultados de tool
+    for m in mensajes:
+        rol = m.get("role")
+        if rol == "tool":
+            bloque: dict[str, Any] = {
+                "type": "tool_result",
+                "tool_use_id": m["tool_call_id"],
+                "content": m["content"],
+            }
+            if m.get("es_error"):
+                bloque["is_error"] = True
+            if en_resultados:
+                salida[-1]["content"].append(bloque)
+            else:
+                salida.append({"role": "user", "content": [bloque]})
+                en_resultados = True
+            continue
+        en_resultados = False
+        if rol == "assistant" and m.get("tool_calls"):
+            bloques: list[dict[str, Any]] = []
+            if m.get("content"):
+                bloques.append({"type": "text", "text": m["content"]})
+            for ll in m["tool_calls"]:
+                bloques.append(
+                    {
+                        "type": "tool_use",
+                        "id": ll["id"],
+                        "name": ll["name"],
+                        "input": ll["arguments"],
+                    }
+                )
+            salida.append({"role": "assistant", "content": bloques})
+        else:
+            salida.append(m)
+    return salida
 
 
 class AnthropicLLM:
@@ -46,8 +91,9 @@ class AnthropicLLM:
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
     ) -> LLMResponse:
+        validar_historial(mensajes)
         sistema = "\n\n".join(str(m["content"]) for m in mensajes if m.get("role") == "system")
-        conversacion = [m for m in mensajes if m.get("role") != "system"]
+        conversacion = _traducir_mensajes([m for m in mensajes if m.get("role") != "system"])
         parametros: dict[str, Any] = {
             "model": self._modelo,
             "max_tokens": self._max_tokens,

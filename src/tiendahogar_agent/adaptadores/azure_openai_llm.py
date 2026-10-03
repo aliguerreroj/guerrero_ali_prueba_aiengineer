@@ -8,6 +8,7 @@ from typing import Any
 from tiendahogar_agent.adaptadores._errores_sdk import traducir_error
 from tiendahogar_agent.config import Settings
 from tiendahogar_agent.excepciones import ErrorLLM, ErrorLLMRespuestaInvalida
+from tiendahogar_agent.mensajes import validar_historial
 from tiendahogar_agent.models import LlamadaTool, LLMResponse, UsoTokens
 
 ESQUEMA_VACIO = {"type": "object", "properties": {}}
@@ -24,6 +25,42 @@ def _traducir_tool(tool: dict[str, Any]) -> dict[str, Any]:
             "parameters": esquema,
         },
     }
+
+
+def _traducir_mensajes(mensajes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Mensajes de dominio -> chat.completions.
+
+    `es_error` de los resultados de tool se descarta: OpenAI no tiene ese campo y el orquestador
+    ya refleja el error en el contenido serializado.
+    """
+    salida: list[dict[str, Any]] = []
+    for m in mensajes:
+        rol = m.get("role")
+        if rol == "assistant" and m.get("tool_calls"):
+            salida.append(
+                {
+                    "role": "assistant",
+                    "content": m.get("content"),
+                    "tool_calls": [
+                        {
+                            "id": ll["id"],
+                            "type": "function",
+                            "function": {
+                                "name": ll["name"],
+                                "arguments": json.dumps(ll["arguments"], ensure_ascii=False),
+                            },
+                        }
+                        for ll in m["tool_calls"]
+                    ],
+                }
+            )
+        elif rol == "tool":
+            salida.append(
+                {"role": "tool", "tool_call_id": m["tool_call_id"], "content": m["content"]}
+            )
+        else:
+            salida.append(m)
+    return salida
 
 
 class AzureOpenAILLM:
@@ -52,9 +89,10 @@ class AzureOpenAILLM:
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
     ) -> LLMResponse:
+        validar_historial(mensajes)
         parametros: dict[str, Any] = {
             "model": self._deployment,
-            "messages": mensajes,
+            "messages": _traducir_mensajes(mensajes),
             "max_completion_tokens": self._max_tokens,
         }
         if tools:

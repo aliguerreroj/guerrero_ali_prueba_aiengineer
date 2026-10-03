@@ -16,6 +16,7 @@ from tiendahogar_agent.adaptadores.fabrica_llm import crear_llm
 from tiendahogar_agent.config import Settings
 from tiendahogar_agent.dobles import FakeLLM
 from tiendahogar_agent.excepciones import (
+    ErrorHistorialMensajes,
     ErrorLLM,
     ErrorLLMAutenticacion,
     ErrorLLMConexion,
@@ -24,6 +25,12 @@ from tiendahogar_agent.excepciones import (
     ErrorLLMServidor,
     ErrorLLMTimeout,
 )
+from tiendahogar_agent.mensajes import (
+    mensaje_asistente,
+    mensaje_desde_respuesta,
+    mensaje_resultado_tool,
+)
+from tiendahogar_agent.models import LlamadaTool
 from tiendahogar_agent.puertos import LLMClient
 from tiendahogar_agent.resiliencia import RespuestaFalloSeguro, llamar_llm_seguro
 
@@ -367,3 +374,195 @@ def test_integracion_anthropic_llamada_real_minima():
     r = llm.completar([{"role": "user", "content": "Responde solo: ok"}])
     assert r.texto
     assert r.uso.entrada > 0
+
+
+# ---------- Mensajes con tools: traducción e ida y vuelta ----------
+
+LLAMADAS = [
+    LlamadaTool(id="c1", nombre="consultar_estado_pedido", argumentos={"order_id": "Ñu-1"}),
+    LlamadaTool(id="c2", nombre="consultar_estado_pedido", argumentos={"order_id": "A2"}),
+]
+
+
+def _historial(texto="Voy a consultar", llamadas=LLAMADAS, error=False):
+    return [
+        {"role": "system", "content": "Eres un agente."},
+        {"role": "user", "content": "¿Dónde está mi pedido?"},
+        mensaje_asistente(texto, llamadas),
+        mensaje_resultado_tool("c1", '{"estado": "envío en camino"}'),
+        mensaje_resultado_tool("c2", '{"error": "no existe"}', es_error=error),
+    ]
+
+
+def _anthropic_enviado(historial):
+    cliente, reg = _cliente_anthropic(_resp_anthropic([NS(type="text", text="ok")]))
+    AnthropicLLM(_settings(), cliente=cliente).completar(historial)
+    return reg.llamadas[0]["messages"]
+
+
+def _azure_enviado(historial):
+    cliente, reg = _cliente_openai(_resp_openai("ok"))
+    AzureOpenAILLM(_settings_azure(), cliente=cliente).completar(historial)
+    return reg.llamadas[0]["messages"]
+
+
+def test_anthropic_envia_tool_use_y_fusiona_tool_results():
+    enviado = _anthropic_enviado(_historial(error=True))
+    assert enviado == [
+        {"role": "user", "content": "¿Dónde está mi pedido?"},
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "Voy a consultar"},
+                {
+                    "type": "tool_use",
+                    "id": "c1",
+                    "name": "consultar_estado_pedido",
+                    "input": {"order_id": "Ñu-1"},
+                },
+                {
+                    "type": "tool_use",
+                    "id": "c2",
+                    "name": "consultar_estado_pedido",
+                    "input": {"order_id": "A2"},
+                },
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "c1",
+                    "content": '{"estado": "envío en camino"}',
+                },
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "c2",
+                    "content": '{"error": "no existe"}',
+                    "is_error": True,
+                },
+            ],
+        },
+    ]
+
+
+def test_anthropic_texto_none_omite_bloque_text_y_sin_error_sin_is_error():
+    enviado = _anthropic_enviado(_historial(texto=None))
+    assert [b["type"] for b in enviado[1]["content"]] == ["tool_use", "tool_use"]
+    assert all("is_error" not in b for b in enviado[2]["content"])
+
+
+def test_anthropic_sin_tools_el_historial_pasa_igual():
+    historial = [
+        {"role": "user", "content": "hola"},
+        mensaje_asistente("Hola", []),
+        {"role": "user", "content": "gracias"},
+    ]
+    assert _anthropic_enviado(historial) == historial
+
+
+def test_azure_envia_tool_calls_y_tool_sin_es_error():
+    enviado = _azure_enviado(_historial(error=True))
+    assert enviado[0] == {"role": "system", "content": "Eres un agente."}
+    assert enviado[2] == {
+        "role": "assistant",
+        "content": "Voy a consultar",
+        "tool_calls": [
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                    "name": "consultar_estado_pedido",
+                    "arguments": '{"order_id": "Ñu-1"}',  # ensure_ascii=False
+                },
+            },
+            {
+                "id": "c2",
+                "type": "function",
+                "function": {
+                    "name": "consultar_estado_pedido",
+                    "arguments": '{"order_id": "A2"}',
+                },
+            },
+        ],
+    }
+    assert enviado[3] == {
+        "role": "tool",
+        "tool_call_id": "c1",
+        "content": '{"estado": "envío en camino"}',
+    }
+    assert enviado[4]["tool_call_id"] == "c2" and "es_error" not in enviado[4]
+
+
+def test_azure_texto_none_y_sin_tools():
+    enviado = _azure_enviado(_historial(texto=None))
+    assert enviado[2]["content"] is None
+    historial = [{"role": "user", "content": "hola"}, mensaje_asistente("Hola", [])]
+    assert _azure_enviado(historial) == historial
+
+
+@pytest.mark.parametrize("enviar", [_anthropic_enviado, _azure_enviado])
+@pytest.mark.parametrize(
+    "malo",
+    [
+        [{"role": "user", "content": "x"}, mensaje_resultado_tool("c1", "{}")],
+        [{"role": "user", "content": "x"}, mensaje_asistente(None, LLAMADAS)],
+        [
+            {"role": "user", "content": "x"},
+            mensaje_asistente(None, LLAMADAS[:1]),
+            mensaje_resultado_tool("", "{}"),
+        ],
+    ],
+)
+def test_adaptadores_rechazan_historial_mal_formado(enviar, malo):
+    with pytest.raises(ErrorHistorialMensajes):
+        enviar(malo)
+
+
+def test_historial_invalido_no_llega_al_sdk():
+    cliente, reg = _cliente_anthropic(None)
+    with pytest.raises(ErrorHistorialMensajes):
+        AnthropicLLM(_settings(), cliente=cliente).completar([mensaje_resultado_tool("c1", "{}")])
+    assert reg.llamadas == []
+
+
+def _comparable(llamadas):
+    return [(ll.id, ll.nombre, ll.argumentos) for ll in llamadas]
+
+
+def test_ida_y_vuelta_anthropic():
+    bloques = [
+        NS(type="text", text="Consulto"),
+        NS(type="tool_use", id="c1", name="consultar_estado_pedido", input={"order_id": "Ñu-1"}),
+        NS(type="tool_use", id="c2", name="consultar_estado_pedido", input={"order_id": "A2"}),
+    ]
+    respuesta = AnthropicLLM._interpretar(_resp_anthropic(bloques))
+    historial = [{"role": "user", "content": "hola"}, mensaje_desde_respuesta(respuesta)]
+    historial += [mensaje_resultado_tool(ll.id, "{}") for ll in respuesta.llamadas_tools]
+    enviado = _anthropic_enviado(historial)
+    usos = [b for b in enviado[1]["content"] if b["type"] == "tool_use"]
+    assert [(b["id"], b["name"], b["input"]) for b in usos] == _comparable(respuesta.llamadas_tools)
+    assert [b["tool_use_id"] for b in enviado[2]["content"]] == ["c1", "c2"]
+    de_vuelta = AnthropicLLM._interpretar(_resp_anthropic([NS(**b) for b in enviado[1]["content"]]))
+    assert de_vuelta.texto == respuesta.texto
+    assert _comparable(de_vuelta.llamadas_tools) == _comparable(respuesta.llamadas_tools)
+
+
+def test_ida_y_vuelta_azure():
+    tool_calls = [
+        NS(id="c1", function=NS(name="consultar_estado_pedido", arguments='{"order_id": "Ñu-1"}')),
+        NS(id="c2", function=NS(name="consultar_estado_pedido", arguments='{"order_id": "A2"}')),
+    ]
+    respuesta = AzureOpenAILLM._interpretar(_resp_openai(None, tool_calls))
+    assert respuesta.texto is None
+    historial = [{"role": "user", "content": "hola"}, mensaje_desde_respuesta(respuesta)]
+    historial += [mensaje_resultado_tool(ll.id, "{}") for ll in respuesta.llamadas_tools]
+    enviado = _azure_enviado(historial)
+    reenviadas = [
+        NS(id=t["id"], function=NS(name=t["function"]["name"], arguments=t["function"]["arguments"]))
+        for t in enviado[1]["tool_calls"]
+    ]
+    de_vuelta = AzureOpenAILLM._interpretar(_resp_openai(enviado[1]["content"], reenviadas))
+    assert _comparable(de_vuelta.llamadas_tools) == _comparable(respuesta.llamadas_tools)
+    assert [m["tool_call_id"] for m in enviado[2:]] == ["c1", "c2"]

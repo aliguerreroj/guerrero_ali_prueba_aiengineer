@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from tiendahogar_agent.mensajes import validar_historial
 from tiendahogar_agent.models import Chunk, LlamadaTool, LLMResponse, UsoTokens
 
 
@@ -59,6 +60,7 @@ class FakeLLM:
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
     ) -> LLMResponse:
+        validar_historial(mensajes)  # detecta historiales con tools mal formados
         self.llamadas.append({"mensajes": mensajes, "tools": tools, "timeout": timeout})
         if not self._cola:
             raise RuntimeError("FakeLLM: no quedan respuestas guionizadas")

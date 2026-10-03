@@ -47,3 +47,12 @@ class ErrorLLMRespuestaInvalida(ErrorLLM):
 
 class ErrorRecuperacion(Exception):
     """Fallo al recuperar fragmentos de los documentos."""
+
+
+class ErrorHistorialMensajes(ValueError):
+    """Historial de mensajes mal formado (error de programación, no del proveedor).
+
+    Se lanza antes de llamar al LLM: p. ej. un resultado de tool sin su llamada previa, un
+    `tool_call_id` vacío o una llamada del asistente sin resultado. No es un `ErrorLLM`
+    a propósito: no debe ocultarse como fallo seguro. Los mensajes nunca incluyen el contenido.
+    """
