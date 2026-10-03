@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from tiendahogar_agent.models import Chunk
+from tiendahogar_agent.models import Chunk, LLMResponse
 
 
 @runtime_checkable
@@ -16,7 +16,9 @@ class LLMClient(Protocol):
         mensajes: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
-    ) -> dict[str, Any]: ...
+    ) -> LLMResponse:
+        """Envía mensajes (y definiciones de tools opcionales); devuelve texto y/o llamadas a tools."""
+        ...
 
 
 @runtime_checkable

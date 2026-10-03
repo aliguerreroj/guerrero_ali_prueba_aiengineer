@@ -73,3 +73,25 @@ def test_ida_y_vuelta(obj):
     datos = obj.model_dump(mode="json")
     assert type(obj).model_validate(datos) == obj
     assert type(obj).model_validate_json(json.dumps(datos)) == obj
+
+
+@pytest.mark.parametrize(
+    "fabrica",
+    [
+        lambda: _resp(extra="x"),
+        lambda: Chunk(texto="x", doc_id="d", extra=1),
+        lambda: Order(order_id="1", producto="p", estado="e", extra=1),
+    ],
+)
+def test_campo_extra_rechazado(fabrica):
+    with pytest.raises(ValidationError):
+        fabrica()
+
+
+def test_tipos_erroneos_id_trace_canal():
+    with pytest.raises(ValidationError):
+        Order(order_id=1001, producto="p", estado="e")
+    with pytest.raises(ValidationError):
+        _resp(trace_id=5)
+    with pytest.raises(ValidationError):
+        _resp(canal=["a"])

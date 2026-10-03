@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     llm_provider: Literal["fake", "anthropic"] = "fake"
-    llm_model: str = "claude-sonnet-4-5"
-    top_k: int = 4
+    llm_model: str = "claude-haiku-4-5-20251001"
+    top_k: int = 3
     umbral_recuperacion: float = 0.3
     umbral_reembolso: float = 500
     timeout_llm_s: float = 30

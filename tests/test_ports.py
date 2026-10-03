@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from tiendahogar_agent.dobles import (
     FakeDocumentSource,
@@ -14,8 +15,9 @@ from tiendahogar_agent.dobles import (
     FakeLLM,
     FakeOrderRepository,
     InMemoryVectorStore,
+    _coseno,
 )
-from tiendahogar_agent.models import Chunk
+from tiendahogar_agent.models import Chunk, LlamadaTool, LLMResponse, UsoTokens
 from tiendahogar_agent.puertos import (
     DocumentSource,
     Embedder,
@@ -39,13 +41,39 @@ def test_dobles_cumplen_protocolos():
 
 
 def test_fake_llm_cola_y_registro():
-    llm = FakeLLM([{"contenido": "a"}, {"contenido": "b"}])
+    llm = FakeLLM([FakeLLM.texto("a", 10, 2), FakeLLM.texto("b")])
     msgs = [{"role": "user", "content": "hola"}]
-    assert llm.completar(msgs)["contenido"] == "a"
-    assert llm.completar(msgs, tools=[{"name": "t"}], timeout=3.0)["contenido"] == "b"
+    r1 = llm.completar(msgs)
+    assert isinstance(r1, LLMResponse)
+    assert r1.texto == "a" and r1.llamadas_tools == []
+    assert r1.uso.entrada == 10 and r1.uso.salida == 2
+    assert llm.completar(msgs, tools=[{"name": "t"}], timeout=3.0).texto == "b"
     assert len(llm.llamadas) == 2
     assert llm.llamadas[1]["tools"] == [{"name": "t"}]
     assert llm.llamadas[1]["timeout"] == 3.0
+
+
+def test_fake_llm_llamada_tool():
+    llm = FakeLLM()
+    llm.encolar(FakeLLM.llamada_tool("consultar_estado_pedido", {"order_id": "ORD-1"}, id="c9"))
+    r = llm.completar([{"role": "user", "content": "x"}])
+    assert r.texto is None
+    assert len(r.llamadas_tools) == 1
+    lt = r.llamadas_tools[0]
+    assert (lt.id, lt.nombre, lt.argumentos) == (
+        "c9",
+        "consultar_estado_pedido",
+        {"order_id": "ORD-1"},
+    )
+
+
+def test_llm_response_mixta_y_extra_prohibido():
+    r = LLMResponse(texto="t", llamadas_tools=[LlamadaTool(id="1", nombre="n")])
+    assert r.llamadas_tools[0].argumentos == {}
+    with pytest.raises(ValidationError):
+        LLMResponse(texto="t", extra=1)
+    with pytest.raises(ValidationError):
+        UsoTokens(entrada=-1)
 
 
 def test_fake_llm_cola_agotada_lanza():
@@ -74,6 +102,46 @@ def test_vector_store_coseno_y_umbral():
     res2 = store.buscar(consulta, k=2, umbral=0.999)
     assert [c.doc_id for c, _ in res2] == ["d0"]
     assert len(store.buscar(consulta, k=1, umbral=-1.0)) == 1
+
+
+def test_coseno_dimensiones_distintas():
+    with pytest.raises(ValueError):
+        _coseno([1.0, 0.0], [1.0])
+
+
+def _store_basico():
+    store = InMemoryVectorStore()
+    chunks = [Chunk(texto="a", doc_id="a"), Chunk(texto="b", doc_id="b")]
+    store.indexar(chunks, [[1.0, 0.0], [0.0, 1.0]])
+    return store
+
+
+@pytest.mark.parametrize("k", [0, -1])
+def test_buscar_k_cero_o_negativo(k):
+    assert _store_basico().buscar([1.0, 0.0], k=k, umbral=-1.0) == []
+
+
+def test_buscar_k_mayor_que_chunks():
+    assert len(_store_basico().buscar([1.0, 0.0], k=50, umbral=-1.0)) == 2
+
+
+def test_buscar_umbrales_extremos():
+    s = _store_basico()
+    assert len(s.buscar([1.0, 0.0], k=5, umbral=0.0)) == 2
+    assert [c.doc_id for c, _ in s.buscar([1.0, 0.0], k=5, umbral=1.0)] == ["a"]
+    assert s.buscar([1.0, 0.0], k=5, umbral=1.5) == []
+    assert s.buscar([1.0, 0.0], k=5, umbral=float("nan")) == []
+
+
+def test_buscar_vector_nulo():
+    s = _store_basico()
+    assert s.buscar([0.0, 0.0], k=5, umbral=0.1) == []
+    assert len(s.buscar([0.0, 0.0], k=5, umbral=0.0)) == 2
+
+
+def test_buscar_dimension_distinta_lanza():
+    with pytest.raises(ValueError):
+        _store_basico().buscar([1.0, 0.0, 0.0], k=1, umbral=0.0)
 
 
 def test_vector_store_vacio():

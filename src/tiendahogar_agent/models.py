@@ -1,16 +1,18 @@
-"""Modelos de dominio: respuesta del agente, fragmentos de documentos y pedidos."""
+"""Modelos de dominio: respuesta del agente, fragmentos, pedidos y respuesta del LLM."""
 
 from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 Accion = Literal["responder", "escalar", "pedir_dato"]
 
 
 class AgentResponse(BaseModel):
     """Resultado final del agente ante un mensaje del cliente."""
+
+    model_config = ConfigDict(extra="forbid")
 
     respuesta: str
     accion: Accion
@@ -22,6 +24,8 @@ class AgentResponse(BaseModel):
 class Chunk(BaseModel):
     """Fragmento de un documento indexable."""
 
+    model_config = ConfigDict(extra="forbid")
+
     texto: str
     doc_id: str
     metadatos: dict[str, Any] = Field(default_factory=dict)
@@ -30,7 +34,38 @@ class Chunk(BaseModel):
 class Order(BaseModel):
     """Pedido de la tabla de pedidos."""
 
+    model_config = ConfigDict(extra="forbid")
+
     order_id: str
     producto: str
     estado: str
     entrega_estimada: str | None = None
+
+
+class LlamadaTool(BaseModel):
+    """Llamada a una tool solicitada por el LLM."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    nombre: str
+    argumentos: dict[str, Any] = Field(default_factory=dict)
+
+
+class UsoTokens(BaseModel):
+    """Consumo de tokens de una llamada al LLM (para el tracing)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entrada: int = Field(default=0, ge=0)
+    salida: int = Field(default=0, ge=0)
+
+
+class LLMResponse(BaseModel):
+    """Respuesta tipada del LLM: texto y/o llamadas a tools, más el uso de tokens."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    texto: str | None = None
+    llamadas_tools: list[LlamadaTool] = Field(default_factory=list)
+    uso: UsoTokens = Field(default_factory=UsoTokens)

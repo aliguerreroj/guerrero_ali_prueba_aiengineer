@@ -16,7 +16,8 @@ def test_defaults_del_yaml_del_repo():
     s = Settings()
     assert s.llm_provider == "fake"
     assert s.umbral_reembolso == 500
-    assert s.top_k > 0 and s.llm_model
+    assert s.top_k == 3
+    assert s.llm_model == "claude-haiku-4-5-20251001"
     assert 0 <= s.umbral_recuperacion <= 1
     assert s.timeout_llm_s > 0 and s.timeout_tool_s > 0
 

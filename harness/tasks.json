@@ -54,7 +54,7 @@
       ],
       "verificacion": "python -m pytest tests/test_ports.py -q",
       "revisado_por_revisor": true,
-      "notas": "Revisor: APROBADO (1.ª vez). Paquete puertos/ con Protocols runtime_checkable y dobles en dobles.py. Pendiente menor: _coseno del doble trunca si las dimensiones difieren."
+      "notas": "Revisor: APROBADO (1.ª vez); correcciones de revisión humana re-aprobadas sin BLOQUEANTES. MENOR: LLMResponse vacío es válido (sin validador); FakeLLM devuelve el mismo objeto mutable del guion; test de tokens negativos solo cubre entrada; UsoTokens coacciona '3'→3 (modo laxo); el test de no-SDKs solo mira imports directos."
     },
     {
       "id": "T04",

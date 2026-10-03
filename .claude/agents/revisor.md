@@ -19,4 +19,8 @@ Proceso:
 
 Restricción: usa Bash **solo** para correr tests e init; **nunca** para crear, modificar o borrar archivos.
 
-Respuesta: veredicto **APROBADO** o **RECHAZADO** y una lista de hallazgos concretos (archivo, qué falla, cómo reproducir). Si rechazas, di qué debe corregirse para aprobar.
+Clasificación de hallazgos: cada hallazgo se etiqueta como **BLOQUEANTE** o **MENOR**.
+- **BLOQUEANTE**: obliga a **RECHAZADO**. Son bugs, criterios incumplidos, riesgos de seguridad o de datos inventados.
+- **MENOR**: puede convivir con **APROBADO**; el Principal lo registra en las `notas` de la tarea en `tasks.json`.
+
+Respuesta: veredicto **APROBADO** o **RECHAZADO** y una lista de hallazgos concretos, cada uno con su etiqueta (BLOQUEANTE | MENOR), archivo, qué falla y cómo reproducir. Si hay al menos un BLOQUEANTE, el veredicto es RECHAZADO y debes decir qué corregir para aprobar. Si solo hay MENOR, aprueba y lístalos aparte para las notas.

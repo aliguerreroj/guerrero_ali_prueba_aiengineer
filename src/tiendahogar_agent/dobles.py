@@ -6,22 +6,48 @@ import hashlib
 import math
 from typing import Any
 
-from tiendahogar_agent.models import Chunk
+from tiendahogar_agent.models import Chunk, LlamadaTool, LLMResponse, UsoTokens
 
 
 class FakeLLM:
-    """LLM guionizado: devuelve las respuestas en orden y registra las llamadas."""
+    """LLM guionizado: devuelve LLMResponse en orden y registra las llamadas."""
 
-    def __init__(self, respuestas: list[dict[str, Any]]) -> None:
-        self._cola = list(respuestas)
+    def __init__(self, respuestas: list[LLMResponse] | None = None) -> None:
+        self._cola: list[LLMResponse] = list(respuestas or [])
         self.llamadas: list[dict[str, Any]] = []
+
+    @staticmethod
+    def texto(
+        contenido: str, tokens_entrada: int = 0, tokens_salida: int = 0
+    ) -> LLMResponse:
+        """Helper: respuesta de solo texto."""
+        return LLMResponse(
+            texto=contenido, uso=UsoTokens(entrada=tokens_entrada, salida=tokens_salida)
+        )
+
+    @staticmethod
+    def llamada_tool(
+        nombre: str,
+        argumentos: dict[str, Any] | None = None,
+        id: str = "call_1",
+        tokens_entrada: int = 0,
+        tokens_salida: int = 0,
+    ) -> LLMResponse:
+        """Helper: respuesta con una llamada a tool."""
+        return LLMResponse(
+            llamadas_tools=[LlamadaTool(id=id, nombre=nombre, argumentos=argumentos or {})],
+            uso=UsoTokens(entrada=tokens_entrada, salida=tokens_salida),
+        )
+
+    def encolar(self, respuesta: LLMResponse) -> None:
+        self._cola.append(respuesta)
 
     def completar(
         self,
         mensajes: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
-    ) -> dict[str, Any]:
+    ) -> LLMResponse:
         self.llamadas.append({"mensajes": mensajes, "tools": tools, "timeout": timeout})
         if not self._cola:
             raise RuntimeError("FakeLLM: no quedan respuestas guionizadas")
@@ -48,11 +74,13 @@ class FakeEmbedder:
 
 
 def _coseno(a: list[float], b: list[float]) -> float:
+    if len(a) != len(b):
+        raise ValueError(f"dimensiones distintas: {len(a)} != {len(b)}")
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
     if na == 0 or nb == 0:
         return 0.0
-    return sum(x * y for x, y in zip(a, b, strict=False)) / (na * nb)
+    return sum(x * y for x, y in zip(a, b, strict=True)) / (na * nb)
 
 
 class InMemoryVectorStore:
