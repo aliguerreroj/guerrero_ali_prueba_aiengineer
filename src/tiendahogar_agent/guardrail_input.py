@@ -120,7 +120,66 @@ _EMPLEADO = (
 )
 _NEG = r"grosero|grosera|groseria|irrespetuos[oa]|descortes|insolente|hostil|maleducad[oa]|prepotente|altanero|altanera"
 _NEGATIVO = rf"(?:{_NEG})"
+
+
+class _ReglaVentana:
+    """Regla «queja + trato/atención + rol» en cualquier orden, dentro de una misma oración.
+
+    Exige los tres elementos con una separación máxima de `ventana` caracteres entre el primero y el
+    último. Solo recorre las primeras apariciones de cada uno (coste acotado, sin backtracking).
+    «Atención» solo cuenta junto a un rol (no captura «atención al cliente» como canal).
+    """
+
+    _MAX_POSICIONES = 8
+    _ORACIONES = re.compile(r"[^.?!\n;]+")
+
+    def __init__(self, *elementos: re.Pattern[str], ventana: int = 90) -> None:
+        self._elementos = elementos
+        self._ventana = ventana
+
+    def search(self, texto: str) -> bool:
+        for oracion in self._ORACIONES.finditer(texto):
+            segmento = oracion.group()
+            posiciones = []
+            for patron in self._elementos:
+                inicios = []
+                for m in patron.finditer(segmento):
+                    inicios.append(m.start())
+                    if len(inicios) >= self._MAX_POSICIONES:
+                        break
+                if not inicios:
+                    break
+                posiciones.append(inicios)
+            else:
+                if _hay_ventana(posiciones, self._ventana):
+                    return True
+        return False
+
+
+def _hay_ventana(posiciones: list[list[int]], ventana: int) -> bool:
+    """¿Hay una elección (una posición por elemento) cuyo rango no supera la ventana?"""
+    combos: list[tuple[int, ...]] = [()]
+    for opciones in posiciones:
+        combos = [c + (p,) for c in combos for p in opciones]
+    return any(max(c) - min(c) <= ventana for c in combos)
+
+
+_ROL = (
+    r"(?:empleado|empleada|vendedor|vendedora|asesor|asesora|cajero|cajera|personal|gerente|encargado|"
+    r"encargada|agente|mesero|mesera|dependiente|trabajador|trabajadora|funcionario|funcionaria|"
+    r"representante|repartidor|repartidora|tecnico|tecnica|conductor|conductora|supervisor|supervisora)"
+)
+_QUEJAR = re.compile(r"\b(?:quej\w*|reclam\w*)\b")
+_TRATO_O_ATENCION = re.compile(r"\b(?:trato|atencion)\b")
+_ROL_RE = re.compile(rf"\b{_ROL}\b")
+# «no tengo ninguna queja», «sin queja alguna»: se retira antes de evaluar la categoría.
+_NEGACION_QUEJA = re.compile(
+    r"\b(?:no\s+(?:tengo|tuve|hay|hubo|pongo|puse|presento)\s+(?:ninguna?\s+)?|ninguna?\s+|sin\s+)"
+    r"(?:queja|reclamo)s?\b"
+)
+
 _REGLAS_TRATO = [
+    ("trato_queja_rol", _ReglaVentana(_QUEJAR, _TRATO_O_ATENCION, _ROL_RE)),
     ("trato_maltrato", _re(
         r"\bmaltrat\w*", r"\bmal\s+trato\b", r"\bme\s+trat(?:o|aron)\s+mal\b",
         r"\btrato\s+(?:pesimo|horrible|inaceptable|grosero|indebido|humillante|malo)\b",
@@ -260,8 +319,9 @@ def evaluar_entrada(mensaje: str, umbral_reembolso: float) -> ResultadoGuardrail
             if _hay_reembolso_alto(texto, umbral_reembolso):
                 disparadas.append((categoria, "reembolso_monto_alto", descripcion))
             continue
+        base = _NEGACION_QUEJA.sub(" ", texto) if categoria == "queja_trato" else texto
         for regla, patron in _REGLAS[categoria]:
-            if patron.search(texto):
+            if patron.search(base):
                 disparadas.append((categoria, regla, descripcion))
                 break
     if not disparadas:

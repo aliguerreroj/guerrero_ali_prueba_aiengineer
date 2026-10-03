@@ -28,7 +28,7 @@
     "pregunta": "Tengo una queja por el trato del vendedor",
     "accion_esperada": "escalar",
     "fuentes_esperadas": [],
-    "notas": "Misma regla que vivo-03 con otra redacción (doc5): escalar a soporte@tiendahogar.example con tono empático. Hallazgo: las reglas deterministas de entrada (T08) hoy NO la detectan (solo vivo-03); depende del clasificador LLM o de ampliar las reglas.",
+    "notas": "Misma regla que vivo-03 con otra redacción (doc5): escalar a soporte@tiendahogar.example con tono empático. Ahora la detecta el guardrail de entrada por reglas (T08 reabierta, regla trato_queja_rol), sin depender del clasificador LLM.",
     "origen": "prueba_en_vivo"
   },
   {

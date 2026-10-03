@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import re
 import socket
 import subprocess
@@ -14,6 +15,7 @@ import pytest
 from tiendahogar_agent.cli import (
     DESPEDIDA,
     PROMPT,
+    configurar_logging,
     construir_orquestador,
     formatear_respuesta,
     main,
@@ -31,6 +33,7 @@ def _entorno(monkeypatch, tmp_path):
     for v in ("LLM_PROVIDER", "ANTHROPIC_API_KEY", "USAR_CLASIFICADOR_LLM", "MAX_ITERACIONES_LLM"):
         monkeypatch.delenv(v, raising=False)
     monkeypatch.chdir(tmp_path)  # sin .env del repo
+    monkeypatch.setenv("TIENDAHOGAR_LOGS_DIR", str(tmp_path / "logs"))  # los tests nunca escriben en el repo
 
 
 class OrqFalso:
@@ -264,3 +267,86 @@ def test_modulo_ejecutable_con_python_m():
     assert r.returncode == 0, r.stderr
     assert "Lavadora" in r.stdout and "Procesando" in r.stdout
     assert "Traceback" not in r.stderr
+
+
+# ---------------------------------------------------------------- logging del CLI
+class OrqLogueador(OrqFalso):
+    """Emite un WARNING (con traza) desde un logger del paquete durante la consulta."""
+
+    def procesar(self, mensaje, historial=None):
+        log = logging.getLogger("tiendahogar_agent.prueba_cli")
+        log.warning("aviso-interno-visible-solo-en-archivo")
+        try:
+            raise RuntimeError("fallo-simulado")
+        except RuntimeError:
+            log.exception("error con traza")
+        log.debug("detalle-debug")
+        return super().procesar(mensaje, historial)
+
+
+def _archivo_log(tmp_path):
+    ruta = tmp_path / "logs" / "tiendahogar.log"
+    return ruta.read_text(encoding="utf-8") if ruta.exists() else ""
+
+
+def test_warning_no_sale_a_consola_sin_debug_y_va_al_archivo(tmp_path, capsys):
+    codigo, salida, errores, _ = _correr("hola\n", OrqLogueador())
+    assert codigo == 0
+    capt = capsys.readouterr()
+    for flujo in (salida, errores, capt.out, capt.err):
+        assert "aviso-interno" not in flujo
+        assert "Traceback" not in flujo and "fallo-simulado" not in flujo
+    assert "Agente: resp1" in salida
+    log = _archivo_log(tmp_path)
+    assert "aviso-interno-visible-solo-en-archivo" in log
+    assert "Traceback" in log and "fallo-simulado" in log
+    assert "detalle-debug" not in log
+
+
+def test_debug_muestra_en_stderr_y_baja_a_debug(tmp_path):
+    codigo, salida, errores, _ = _correr("hola\n", OrqLogueador(), argv=["--debug"])
+    assert codigo == 0
+    assert "aviso-interno-visible-solo-en-archivo" in errores
+    assert "detalle-debug" in errores
+    assert "aviso-interno" not in salida
+    assert "detalle-debug" in _archivo_log(tmp_path)
+
+
+def test_handlers_no_se_acumulan_y_se_restauran(tmp_path):
+    raiz = logging.getLogger()
+    antes = list(raiz.handlers), raiz.level
+    for _ in range(3):
+        _correr("hola\n", OrqLogueador())
+    assert list(raiz.handlers) == antes[0] and raiz.level == antes[1]
+    # y la configuración directa es idempotente
+    for _ in range(3):
+        cerrar = configurar_logging(False, tmp_path / "logs", io.StringIO())
+    propios = [h for h in raiz.handlers if getattr(h, "_tiendahogar_cli", False)]
+    assert len(propios) == 1
+    cerrar()
+    assert list(raiz.handlers) == antes[0]
+
+
+def test_directorio_no_escribible_no_cae(tmp_path, monkeypatch):
+    bloqueo = tmp_path / "es_un_archivo"
+    bloqueo.write_text("no soy un directorio", encoding="utf-8")
+    monkeypatch.setenv("TIENDAHOGAR_LOGS_DIR", str(bloqueo / "logs"))
+    codigo, salida, errores, _ = _correr("hola\n", OrqLogueador())
+    assert codigo == 0
+    assert "Agente: resp1" in salida
+    assert "aviso-interno" not in errores and "aviso-interno" not in salida
+
+
+def test_directorio_no_escribible_con_debug_sigue_mostrando_en_stderr(tmp_path, monkeypatch):
+    bloqueo = tmp_path / "es_un_archivo"
+    bloqueo.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("TIENDAHOGAR_LOGS_DIR", str(bloqueo / "logs"))
+    codigo, _, errores, _ = _correr("hola\n", OrqLogueador(), argv=["--debug"])
+    assert codigo == 0 and "aviso-interno" in errores
+
+
+def test_error_de_configuracion_sigue_visible_sin_debug(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    salida, errores = io.StringIO(), io.StringIO()
+    assert main([], io.StringIO(""), salida, None, errores) == 2
+    assert "Traceback" not in errores.getvalue() and errores.getvalue().strip()

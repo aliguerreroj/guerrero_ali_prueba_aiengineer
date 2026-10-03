@@ -133,6 +133,66 @@ def test_queja_trato(m):
 @pytest.mark.parametrize(
     "m",
     [
+        "Quiero poner una queja del trato de un empleado",
+        "tengo una queja por el trato del vendedor",
+        "Tengo una queja por el trato del vendedor",
+        "Quiero poner una queja sobre el trato del empleado",
+        "queja por el trato de la cajera",
+        "Una queja acerca del trato que me dio el asesor",
+        "Quiero reclamar por el trato del personal",
+        "Mi queja es por el trato del gerente",
+        "QUEJA POR EL TRATO DEL ENCARGADO",
+        "Quiero quejarme de la atención del vendedor",
+        "Tengo un reclamo por la atención de la cajera",
+        "Mi queja es del vendedor, por su trato",
+        "El trato del mesero fue lo peor, quiero una queja",
+    ],
+)
+def test_queja_trato_empleado_por_reglas(m):
+    r = _ev(m)
+    assert r.escalar and r.categoria == "queja_trato", m
+    assert r.accion == "escalar" and r.canal == "soporte@tiendahogar.example"
+
+
+@pytest.mark.parametrize(
+    "m",
+    [
+        "Quiero poner una queja por un producto dañado",
+        "Tengo una queja por el retraso del envío",
+        "Tengo una queja por el precio",
+        "Tengo una queja por la página web",
+        "¿Cómo pongo una queja?",
+        "¿Dónde puedo poner una queja sobre un producto?",
+        "¿Cuál es el trato de la garantía en lavadoras?",
+        "El trato del vendedor fue excelente, gracias",
+        "No tengo ninguna queja del trato del empleado",
+        "Sin queja alguna sobre el trato del vendedor",
+        "Quiero felicitar al empleado por su trato",
+        "¿Cuál es la atención al cliente por teléfono?",
+        "Quiero reclamar la garantía de mi licuadora. La atención al cliente es por teléfono, ¿cierto?",
+    ],
+)
+def test_queja_trato_falsos_positivos(m):
+    r = _ev(m)
+    assert not r.escalar, (m, r)
+
+
+def test_queja_trato_ventana_no_cruza_oraciones():
+    assert not _ev("Tengo una queja del producto. El trato del vendedor fue excelente").escalar
+
+
+def test_queja_trato_entrada_larga_lineal():
+    import time
+
+    t0 = time.perf_counter()
+    _ev("queja trato " * 5000)
+    _ev("queja " * 20000 + "trato " * 20000)
+    assert time.perf_counter() - t0 < 2
+
+
+@pytest.mark.parametrize(
+    "m",
+    [
         "Me cobraron doble por mi pedido",
         "Hay un cobro doble en mi tarjeta",
         "Me cobraron de más",

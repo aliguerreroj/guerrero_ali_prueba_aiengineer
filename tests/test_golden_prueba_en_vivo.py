@@ -48,3 +48,13 @@ def test_cubre_las_tres_acciones(casos):
 def test_no_contiene_secretos(casos):
     texto = json.dumps(casos, ensure_ascii=False)
     assert not re.search(r"sk-|api[_-]?key", texto, re.IGNORECASE)
+
+
+@pytest.mark.parametrize("id_caso", ["vivo-03-queja-trato-empleado", "vivo-04-queja-trato-vendedor"])
+def test_quejas_de_trato_escalan_por_reglas_sin_llm(casos, id_caso):
+    """Regresión: ambas redacciones escalan en la primera capa (determinista), sin clasificador."""
+    from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO, evaluar_entrada
+
+    caso = next(c for c in casos if c["id"] == id_caso)
+    r = evaluar_entrada(caso["pregunta"], 500)
+    assert r.escalar and r.categoria == "queja_trato" and r.canal == CANAL_ESCALAMIENTO

@@ -139,7 +139,7 @@
       "id": "T08",
       "fase": 2,
       "titulo": "Guardrail de entrada determinista",
-      "estado": "en_progreso",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T02"
@@ -154,8 +154,8 @@
         "Precedencia: si el mensaje mezcla un tema escalable con otro que no lo es, se escala"
       ],
       "verificacion": "python -m pytest tests/test_guardrail_input.py -q",
-      "revisado_por_revisor": false,
-      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTE: falsos negativos legales con clíticos, corregido) y luego APROBADO. MENOR: test_montos_variantes_extra_falsos_positivos tiene un caso que sí escala (usa un if; mover al test positivo y renombrar); limitaciones documentadas: 'reembolso de 2024' se lee como monto, '$0.800', 'legal' suelto y 'denuncia de robo' escalan (fallo seguro); sin cubrir: 'necesito reembolso: 600' (sin moneda), '$5e3'. Ventanas de 60 caracteres entre empleado y adjetivo. Precedencia: legal > manipulacion > facturacion > queja_trato > reembolso_alto. Reabierta (sesión 08, fix tras prueba en vivo)."
+      "revisado_por_revisor": true,
+      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTE: falsos negativos legales con clíticos, corregido) y luego APROBADO. MENOR: test_montos_variantes_extra_falsos_positivos tiene un caso que sí escala (usa un if; mover al test positivo y renombrar); limitaciones documentadas: 'reembolso de 2024' se lee como monto, '$0.800', 'legal' suelto y 'denuncia de robo' escalan (fallo seguro); sin cubrir: 'necesito reembolso: 600' (sin moneda), '$5e3'. Ventanas de 60 caracteres entre empleado y adjetivo. Precedencia: legal > manipulacion > facturacion > queja_trato > reembolso_alto. Reabierta (sesión 08, fix tras prueba en vivo). Sesión 08 grupo 3: Revisor APROBADO (1.ª vez). T08: regla trato_queja_rol + retiro de negaciones. CLI: logs a archivo, consola solo con --debug. MENOR: escapan ~11 frases cercanas («quiero reportar el trato de un empleado», «queja de la actitud del empleado», «me atendió pésimo el vendedor y quiero quejarme»); con --debug el log guarda el mensaje enmascarado y enmascarar_pii no cubre claves de API."
     },
     {
       "id": "T09",
@@ -301,7 +301,7 @@
       "id": "T16",
       "fase": 3,
       "titulo": "CLI de chat",
-      "estado": "en_progreso",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T14"
@@ -312,8 +312,8 @@
         "Muestra fuentes y acción"
       ],
       "verificacion": "python -m pytest tests/test_cli.py -q",
-      "revisado_por_revisor": false,
-      "notas": "Revisor APROBADO a la primera. MENOR: llm_demo._PEDIDO sin limite de digitos (ORD-10011 se lee como ORD-1001); con varios ORD solo consulta el primero; con clave anthropic invalida resiliencia imprime un traceback en stderr; el demo pega el titulo del documento. HALLAZGO EN T08 (fuera de alcance): frases como 'quiero poner una queja del trato de un empleado' no escalan por reglas; pendiente de decision del humano. Reabierta (sesión 08, fix tras prueba en vivo)."
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. MENOR: llm_demo._PEDIDO sin limite de digitos (ORD-10011 se lee como ORD-1001); con varios ORD solo consulta el primero; con clave anthropic invalida resiliencia imprime un traceback en stderr; el demo pega el titulo del documento. HALLAZGO EN T08 (fuera de alcance): frases como 'quiero poner una queja del trato de un empleado' no escalan por reglas; pendiente de decision del humano. Reabierta (sesión 08, fix tras prueba en vivo). Sesión 08 grupo 3: Revisor APROBADO (1.ª vez). T08: regla trato_queja_rol + retiro de negaciones. CLI: logs a archivo, consola solo con --debug. MENOR: escapan ~11 frases cercanas («quiero reportar el trato de un empleado», «queja de la actitud del empleado», «me atendió pésimo el vendedor y quiero quejarme»); con --debug el log guarda el mensaje enmascarado y enmascarar_pii no cubre claves de API."
     },
     {
       "id": "T17",

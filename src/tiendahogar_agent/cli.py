@@ -21,15 +21,18 @@ Proveedor (variable `LLM_PROVIDER` o `.env`):
 
 El historial de la sesión lo acumula la CLI (turnos `user`/`assistant`, máximo
 `MAX_MENSAJES_HISTORIAL`). Tras cada respuesta se muestra la acción, las fuentes, el canal (si
-escala) y el trace_id. Los logs del agente salen por stderr y solo desde WARNING.
+escala) y el trace_id. Los logs (WARNING en adelante) van a
+`logs/tiendahogar.log` (raíz del repo, o `TIENDAHOGAR_LOGS_DIR`); el cliente no los ve. Con `--debug`
+también salen por stderr y el nivel baja a DEBUG.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -45,7 +48,8 @@ from tiendahogar_agent.models import AgentResponse
 from tiendahogar_agent.orquestador import MAX_MENSAJES_HISTORIAL, Orquestador
 from tiendahogar_agent.retriever import Retriever, construir_retriever
 
-DOCS_POR_DEFECTO = Path(__file__).resolve().parents[2] / "data" / "docs"
+RAIZ_REPO = Path(__file__).resolve().parents[2]
+DOCS_POR_DEFECTO = RAIZ_REPO / "data" / "docs"
 PALABRAS_SALIDA = {"salir", "exit"}
 PROMPT = "Tú> "
 BIENVENIDA = "TiendaHogar · asistente de soporte. Escribe «salir» para terminar."
@@ -98,7 +102,66 @@ def _parsear(argv: Sequence[str] | None) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="tiendahogar-chat", description="Chat de soporte TiendaHogar.")
     p.add_argument("--una-vez", metavar="MENSAJE", help="procesa un solo mensaje y termina")
     p.add_argument("--docs", type=Path, default=DOCS_POR_DEFECTO, help="carpeta de documentos")
+    p.add_argument(
+        "--debug", action="store_true",
+        help="muestra los logs en la consola (stderr) y baja el nivel a DEBUG (también en el archivo)",
+    )
     return p.parse_args(argv)
+
+
+def directorio_logs() -> Path:
+    """Carpeta de logs: `TIENDAHOGAR_LOGS_DIR`; si no, `logs/` en la raíz del repo (instalación
+    editable, donde está pyproject.toml); si no hay repo, `logs/` bajo el directorio actual."""
+    explicito = os.environ.get("TIENDAHOGAR_LOGS_DIR", "").strip()
+    if explicito:
+        return Path(explicito)
+    if (RAIZ_REPO / "pyproject.toml").exists():
+        return RAIZ_REPO / "logs"
+    return Path.cwd() / "logs"
+
+
+def configurar_logging(debug: bool, carpeta: Path, consola: TextIO) -> Callable[[], None]:
+    """Instala los handlers del CLI en el logger raíz y devuelve la función que los retira.
+
+    - Archivo `<carpeta>/tiendahogar.log` (WARNING; DEBUG con `debug`). Si la carpeta no se puede
+      crear o escribir, se degrada sin caer: no hay log a archivo.
+    - Consola (`consola`, stderr) solo con `debug`: el cliente nunca ve WARNING/ERROR ni trazas.
+    Es idempotente: antes de instalar retira los handlers propios previos (no se acumulan).
+    """
+    raiz = logging.getLogger("")
+    paquete = logging.getLogger("tiendahogar_agent")
+    for h in [h for h in raiz.handlers if getattr(h, "_tiendahogar_cli", False)]:
+        raiz.removeHandler(h)
+        h.close()
+    nivel = logging.DEBUG if debug else logging.WARNING
+    formato = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    handlers: list[logging.Handler] = []
+    try:
+        carpeta.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(carpeta / "tiendahogar.log", encoding="utf-8"))
+    except OSError:
+        pass  # sin escritura: se degrada a no loguear a archivo
+    if debug:
+        handlers.append(logging.StreamHandler(consola))
+    if not handlers:
+        handlers.append(logging.NullHandler())  # evita el handler de último recurso (stderr)
+    for h in handlers:
+        h.setLevel(nivel)
+        h.setFormatter(formato)
+        h._tiendahogar_cli = True  # type: ignore[attr-defined]
+        raiz.addHandler(h)
+    nivel_previo_raiz, nivel_previo_paquete = raiz.level, paquete.level
+    raiz.setLevel(logging.WARNING)
+    paquete.setLevel(nivel)  # DEBUG solo para el paquete (no para librerías de terceros)
+
+    def cerrar() -> None:
+        for h in handlers:
+            raiz.removeHandler(h)
+            h.close()
+        raiz.setLevel(nivel_previo_raiz)
+        paquete.setLevel(nivel_previo_paquete)
+
+    return cerrar
 
 
 def main(
@@ -113,6 +176,16 @@ def main(
     salida = salida if salida is not None else sys.stdout
     errores = errores if errores is not None else sys.stderr
     args = _parsear(argv)
+    cerrar_logging = configurar_logging(args.debug, directorio_logs(), errores)
+    try:
+        return _ejecutar(args, entrada, salida, errores, orquestador)
+    finally:
+        cerrar_logging()
+
+
+def _ejecutar(
+    args: argparse.Namespace, entrada: TextIO, salida: TextIO, errores: TextIO, orquestador: Any | None
+) -> int:
     if orquestador is None:
         try:
             orquestador = construir_orquestador(cargar_settings(), args.docs)
@@ -161,16 +234,14 @@ def main(
 
 
 def _preparar_consola() -> None:
-    """Salida segura en Windows: errors='replace' (y UTF-8 si no es terminal) y logs a stderr."""
+    """Salida segura en Windows: errors='replace' (y UTF-8 si no es terminal). El logging lo
+    configura `main` (archivo; consola solo con --debug)."""
     for flujo in (sys.stdin, sys.stdout, sys.stderr):
         if hasattr(flujo, "reconfigure"):
             opciones: dict[str, str] = {"errors": "replace"}
             if not flujo.isatty():
                 opciones["encoding"] = "utf-8"
             flujo.reconfigure(**opciones)
-    logging.basicConfig(
-        level=logging.WARNING, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s"
-    )
 
 
 def principal() -> None:
