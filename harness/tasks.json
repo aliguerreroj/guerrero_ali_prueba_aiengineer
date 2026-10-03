@@ -216,7 +216,7 @@
       "id": "T12",
       "fase": 3,
       "titulo": "Adaptadores LLM",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T03",
@@ -229,8 +229,8 @@
         "El proveedor se elige por configuración"
       ],
       "verificacion": "python -m pytest tests/test_llm_adapters.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO. MENOR: anthropic/openai son dependencias obligatorias (podrian ser extras) y httpx no esta declarado; raise from conserva el mensaje original del SDK en __cause__ (mitigado por el enmascarado de T11); los adaptadores no traducen mensajes de resultado de tool (formato a definir en T14); api_version sin comillas en YAML falla con ValidationError sin test."
     },
     {
       "id": "T13",

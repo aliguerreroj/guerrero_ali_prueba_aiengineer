@@ -13,6 +13,8 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "snowballstemmer>=2.2",
     "fastembed>=0.8",
+    "anthropic>=0.40",
+    "openai>=1.50",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +29,7 @@ pythonpath = ["src"]
 # Los tests marcados integration (modelo real, red) se omiten por defecto;
 # se ejecutan con: python -m pytest -m integration
 addopts = "-m 'not integration'"
-markers = ["integration: usa el modelo real de embeddings (descarga/red); omitido por defecto"]
+markers = ["integration: usa servicios reales (modelo de embeddings o API del LLM; descarga/red); omitido por defecto"]
 
 [tool.ruff]
 line-length = 100

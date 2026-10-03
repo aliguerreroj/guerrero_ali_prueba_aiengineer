@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    llm_provider: Literal["fake", "anthropic"] = "fake"
+    llm_provider: Literal["fake", "anthropic", "azure"] = "fake"
     llm_model: str = "claude-haiku-4-5-20251001"
     top_k: int = 3
     # Relevancia (T07): se aplica sobre los puntajes ORIGINALES, no sobre el RRF. PROVISIONALES (T19).
@@ -52,7 +52,13 @@ class Settings(BaseSettings):
     timeout_llm_s: float = 30
     timeout_tool_s: float = 5
     max_reintentos_llm: int = 2
+    llm_max_tokens: int = 1024
     anthropic_api_key: SecretStr | None = None
+    # Azure OpenAI (opcionales; el «modelo» es el nombre del deployment)
+    azure_openai_api_key: SecretStr | None = None
+    azure_openai_endpoint: str | None = None
+    azure_openai_api_version: str = "2024-10-21"
+    azure_openai_deployment: str | None = None
     # Chunking de documentos (T05)
     chunk_strategy: Literal["none", "fixed", "recursive", "auto"] = "auto"
     chunk_umbral_corto: int = 1000  # caracteres; auto no divide documentos <= umbral
@@ -83,6 +89,8 @@ class Settings(BaseSettings):
             raise ValueError("timeout_llm_s debe estar en (0, 120] segundos")
         if not 0 < self.timeout_tool_s <= 60:
             raise ValueError("timeout_tool_s debe estar en (0, 60] segundos")
+        if self.llm_max_tokens < 1:
+            raise ValueError("llm_max_tokens debe ser >= 1")
         if not 0 <= self.max_reintentos_llm <= 5:
             raise ValueError("max_reintentos_llm debe estar entre 0 y 5")
         return self

@@ -1,7 +1,10 @@
 # Valores por defecto de la aplicación. Las variables de entorno tienen prioridad.
 # Aquí NUNCA van claves secretas.
+# Proveedor del LLM: fake | anthropic | azure (claves y endpoint van en .env, nunca aquí).
 llm_provider: fake
 llm_model: claude-haiku-4-5-20251001
+llm_max_tokens: 1024
+azure_openai_api_version: "2024-10-21"  # entre comillas: si no, YAML lo lee como fecha
 top_k: 3
 # Relevancia sobre puntajes ORIGINALES (no sobre RRF): chunk relevante si BM25 > umbral_bm25
 # O coseno > umbral_semantico. Ambos son PROVISIONALES hasta T19 (ver ADR-004).
