@@ -31,6 +31,17 @@ class Chunk(BaseModel):
     metadatos: dict[str, Any] = Field(default_factory=dict)
 
 
+def clave_chunk(chunk: Chunk) -> tuple[str, int]:
+    """Clave estable `(doc_id, posicion)` de un chunk (la `posicion` la pone el loader)."""
+    posicion = chunk.metadatos.get("posicion")
+    if not isinstance(posicion, int) or isinstance(posicion, bool):
+        raise ValueError(  # noqa: TRY004 - dato ausente o inválido: es un error de valor
+            f"El chunk de «{chunk.doc_id}» no tiene metadatos['posicion'] entera "
+            f"(valor: {posicion!r}); no se puede identificar de forma estable."
+        )
+    return (chunk.doc_id, posicion)
+
+
 class Order(BaseModel):
     """Pedido de la tabla de pedidos (inmutable)."""
 

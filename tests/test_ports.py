@@ -8,14 +8,13 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore, _coseno
 from tiendahogar_agent.dobles import (
     FakeDocumentSource,
     FakeEmbedder,
     FakeEventBus,
     FakeLLM,
     FakeOrderRepository,
-    InMemoryVectorStore,
-    _coseno,
 )
 from tiendahogar_agent.models import Chunk, LlamadaTool, LLMResponse, UsoTokens
 from tiendahogar_agent.puertos import (
@@ -179,3 +178,17 @@ def test_puertos_sin_sdks_concretos():
             else:
                 continue
             assert not (raices & PROHIBIDOS), archivo
+
+
+def test_ningun_modulo_de_src_importa_dobles():
+    for archivo in PAQUETE.rglob("*.py"):
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.Import):
+                nombres = [a.name for a in nodo.names]
+            elif isinstance(nodo, ast.ImportFrom):
+                modulo = nodo.module or ""
+                nombres = [modulo] + [f"{modulo}.{a.name}" for a in nodo.names]
+            else:
+                continue
+            assert "tiendahogar_agent.dobles" not in nombres, archivo

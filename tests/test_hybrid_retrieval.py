@@ -7,12 +7,13 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
 from tiendahogar_agent.adaptadores.fastembed_embedder import (
     MODELO_POR_DEFECTO,
     FastEmbedEmbedder,
 )
 from tiendahogar_agent.config import Settings
-from tiendahogar_agent.dobles import FakeEmbedder, InMemoryVectorStore
+from tiendahogar_agent.dobles import FakeEmbedder
 from tiendahogar_agent.documentos import FileSystemDocumentSource
 from tiendahogar_agent.indice_lexico import IndiceLexico
 from tiendahogar_agent.models import Chunk

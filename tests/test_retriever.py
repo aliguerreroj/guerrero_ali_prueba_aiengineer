@@ -7,11 +7,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
 from tiendahogar_agent.config import Settings
-from tiendahogar_agent.dobles import FakeEmbedder, InMemoryVectorStore
+from tiendahogar_agent.dobles import FakeEmbedder
 from tiendahogar_agent.documentos import FileSystemDocumentSource
 from tiendahogar_agent.indice_lexico import IndiceLexico
-from tiendahogar_agent.models import Chunk
+from tiendahogar_agent.models import Chunk, clave_chunk
 from tiendahogar_agent.retriever import (
     RRF_K,
     ResultadoRecuperacion,
@@ -22,6 +23,10 @@ from tiendahogar_agent.retriever import (
 
 DOCS = Path(__file__).resolve().parents[1] / "data" / "docs"
 INALCANZABLE = 2.0  # el coseno nunca supera 1: desactiva la parte semántica
+
+
+def mk(texto, doc_id, posicion=0):
+    return Chunk(texto=texto, doc_id=doc_id, metadatos={"posicion": posicion})
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +118,7 @@ def test_sin_chunks_no_lanza():
 
 
 def test_chunks_de_texto_vacio_no_lanza():
-    vacios = [Chunk(texto="", doc_id="d1"), Chunk(texto="   ", doc_id="d2")]
+    vacios = [mk("", "d1"), mk("   ", "d2")]
     assert hacer(vacios).recuperar("garantía") == []
 
 
@@ -125,11 +130,72 @@ def test_bm25_no_positivo_nunca_es_relevante():
         def puntuar(self, consulta):
             return [(c, -1.0) for c in self.ch]
 
-    ch = [Chunk(texto="a", doc_id="d1"), Chunk(texto="b", doc_id="d2")]
+    ch = [mk("a", "d1"), mk("b", "d2")]
     r = Retriever(
         ch, IndiceNegativo(ch), FakeEmbedder(), InMemoryVectorStore(), 3, -5.0, INALCANZABLE
     )
     assert r.recuperar("a") == []
+
+
+# --- identidad estable de chunks -------------------------------------------
+
+
+def test_clave_chunk():
+    assert clave_chunk(mk("x", "d1", 3)) == ("d1", 3)
+    with pytest.raises(ValueError, match="posicion"):
+        clave_chunk(Chunk(texto="x", doc_id="d1"))
+    with pytest.raises(ValueError, match="posicion"):
+        clave_chunk(Chunk(texto="x", doc_id="d1", metadatos={"posicion": "0"}))
+    with pytest.raises(ValueError, match="posicion"):
+        clave_chunk(Chunk(texto="x", doc_id="d1", metadatos={"posicion": True}))
+
+
+def test_retriever_exige_posicion():
+    with pytest.raises(ValueError, match="posicion"):
+        hacer([Chunk(texto="a", doc_id="d1")])
+
+
+def test_retriever_rechaza_claves_duplicadas():
+    with pytest.raises(ValueError, match="duplicada"):
+        hacer([mk("a", "d1", 0), mk("b", "d1", 0)])
+    hacer([mk("a", "d1", 0), mk("b", "d1", 1), mk("c", "d2", 0)])  # distinto doc o posición: ok
+
+
+class StoreConCopias:
+    """Replica InMemoryVectorStore pero devuelve copias profundas de los chunks."""
+
+    def __init__(self):
+        self._interno = InMemoryVectorStore()
+
+    def indexar(self, chunks, vectores):
+        self._interno.indexar(chunks, vectores)
+
+    def buscar(self, vector, k, umbral):
+        return [(c.model_copy(deep=True), s) for c, s in self._interno.buscar(vector, k, umbral)]
+
+
+def test_semantico_funciona_con_store_que_devuelve_copias():
+    chs = [mk("alfa", "d1"), mk("beta", "d2")]
+    emb = EmbedderPorTexto({"alfa": [1, 0], "beta": [0, 1], "zzz": [0.1, 1.0]})
+    r = Retriever(chs, IndiceLexico(chs), emb, StoreConCopias(), 3, 0.5, 0.5)
+    res = r.recuperar("zzz")
+    assert [x.chunk.doc_id for x in res] == ["d2"]
+    assert res[0].similitud is not None
+    assert res[0].similitud == pytest.approx(0.995, abs=1e-3)
+    assert res[0].chunk is chs[1]  # el chunk propio del retriever, no la copia del store
+
+
+def test_clave_desconocida_del_store_se_ignora(caplog):
+    class StoreAjeno(StoreConCopias):
+        def buscar(self, vector, k, umbral):
+            ajeno = mk("otro", "dX", 9)
+            return [*super().buscar(vector, k, umbral), (ajeno, 1.0)]
+
+    chs = [mk("alfa", "d1"), mk("beta", "d2")]
+    emb = EmbedderPorTexto({"alfa": [1, 0], "beta": [0, 1], "zzz": [0.1, 1.0]})
+    r = Retriever(chs, IndiceLexico(chs), emb, StoreAjeno(), 3, 0.5, 0.5)
+    assert [x.chunk.doc_id for x in r.recuperar("zzz")] == ["d2"]
+    assert "desconocido" in caplog.text
 
 
 # --- parte semántica -----------------------------------------------------
@@ -146,7 +212,7 @@ class EmbedderPorTexto:
 
 
 def test_semantico_rescata_chunk_sin_bm25():
-    ch = [Chunk(texto="alfa", doc_id="d1"), Chunk(texto="beta", doc_id="d2")]
+    ch = [mk("alfa", "d1"), mk("beta", "d2")]
     emb = EmbedderPorTexto({"alfa": [1, 0], "beta": [0, 1], "zzz": [0.1, 1.0]})
     r = Retriever(ch, IndiceLexico(ch), emb, InMemoryVectorStore(), 3, 0.5, 0.5)
     res = r.recuperar("zzz")
@@ -160,7 +226,7 @@ def test_semantico_rescata_chunk_sin_bm25():
 
 def test_relevancia_se_decide_sobre_puntajes_originales_no_rrf():
     """Un chunk irrelevante en ambos puntajes no entra, aunque la fusión le daría score."""
-    ch = [Chunk(texto="alfa", doc_id="d1"), Chunk(texto="beta", doc_id="d2")]
+    ch = [mk("alfa", "d1"), mk("beta", "d2")]
     emb = EmbedderPorTexto({"alfa": [1, 0], "beta": [0, 1], "alfa?": [1, 0]})
     r = Retriever(ch, IndiceLexico(ch), emb, InMemoryVectorStore(), 5, 0.1, 0.5)
     assert [x.chunk.doc_id for x in r.recuperar("alfa?")] == ["d1"]

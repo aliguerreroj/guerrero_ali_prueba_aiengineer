@@ -5,6 +5,10 @@ Regla (ADR-004): un chunk es relevante si `bm25 > umbral_bm25` (y bm25 > 0) O
 escala o pide un dato; nunca inventa). Solo los relevantes entran a la fusión
 Reciprocal Rank Fusion, que únicamente ORDENA; después se corta a `top_k`.
 
+Identidad: los chunks se identifican por la clave estable `clave_chunk`
+`(doc_id, posicion)`, no por `id()`; así un VectorStore que devuelva copias
+(p. ej. uno que serialice) no rompe la parte semántica.
+
 Fallo del embedder: se degrada a solo BM25 y se registra un aviso (el fallo
 seguro es perder la parte semántica, no tumbar la conversación). Si falla al
 indexar, el retriever queda en modo solo léxico de forma permanente.
@@ -19,7 +23,7 @@ from pydantic import BaseModel, ConfigDict
 
 from tiendahogar_agent.config import Settings
 from tiendahogar_agent.indice_lexico import IndiceLexico
-from tiendahogar_agent.models import Chunk
+from tiendahogar_agent.models import Chunk, clave_chunk
 from tiendahogar_agent.puertos import Embedder, VectorStore
 
 logger = logging.getLogger(__name__)
@@ -74,6 +78,12 @@ class Retriever:
         if top_k < 1:
             raise ValueError("top_k debe ser >= 1")
         self._chunks = list(chunks)
+        self._por_clave: dict[tuple[str, int], Chunk] = {}
+        for c in self._chunks:
+            clave = clave_chunk(c)
+            if clave in self._por_clave:
+                raise ValueError(f"Clave de chunk duplicada: {clave}")
+            self._por_clave[clave] = c
         self._indice = indice
         self._embedder = embedder
         self._store = store
@@ -89,8 +99,8 @@ class Retriever:
             except Exception:
                 logger.warning("Embedder falló al indexar; se usa solo BM25", exc_info=True)
 
-    def _similitudes(self, consulta: str) -> dict[int, float]:
-        """Coseno de TODOS los chunks (sin umbral), indexado por id() del chunk."""
+    def _similitudes(self, consulta: str) -> dict[tuple[str, int], float]:
+        """Coseno de TODOS los chunks (sin umbral), indexado por clave estable."""
         if not self._semantico:
             return {}
         try:
@@ -99,19 +109,31 @@ class Retriever:
         except Exception:
             logger.warning("Embedder falló en la consulta; se usa solo BM25", exc_info=True)
             return {}
-        return {id(c): float(s) for c, s in pares}
+        sims: dict[tuple[str, int], float] = {}
+        for c, s in pares:
+            try:
+                clave = clave_chunk(c)
+            except ValueError:
+                clave = None
+            if clave not in self._por_clave:
+                logger.warning("El store devolvió un chunk desconocido (%s); se ignora", clave)
+                continue
+            sims[clave] = float(s)
+        return sims
 
     def recuperar(self, consulta: str | None) -> list[ResultadoRecuperacion]:
         if not consulta or not consulta.strip() or not self._chunks:
             return []
-        bm25 = {id(c): p for c, p in self._indice.puntuar(consulta)}
+        bm25 = {clave_chunk(c): p for c, p in self._indice.puntuar(consulta)}
         sims = self._similitudes(consulta)
 
         def lex_ok(c: Chunk) -> bool:
-            return bm25.get(id(c), 0.0) > 0 and bm25[id(c)] > self.umbral_bm25
+            p = bm25.get(clave_chunk(c), 0.0)
+            return p > 0 and p > self.umbral_bm25
 
         def sem_ok(c: Chunk) -> bool:
-            return id(c) in sims and sims[id(c)] > self.umbral_semantico
+            k = clave_chunk(c)
+            return k in sims and sims[k] > self.umbral_semantico
 
         relevantes = [c for c in self._chunks if lex_ok(c) or sem_ok(c)]
         if not relevantes:
@@ -119,18 +141,18 @@ class Retriever:
 
         # Cada ranking contiene solo los chunks relevantes por esa señal (puntaje original);
         # el desempate es el orden original (sort estable). El RRF solo ordena.
-        r_lex = [id(c) for c in sorted(filter(lex_ok, relevantes), key=lambda c: -bm25[id(c)])]
-        r_sem = [id(c) for c in sorted(filter(sem_ok, relevantes), key=lambda c: -sims[id(c)])]
+        r_lex = [clave_chunk(c) for c in sorted(filter(lex_ok, relevantes), key=lambda c: -bm25[clave_chunk(c)])]
+        r_sem = [clave_chunk(c) for c in sorted(filter(sem_ok, relevantes), key=lambda c: -sims[clave_chunk(c)])]
         scores = fusion_rrf([r_lex, r_sem])
 
-        ordenados = sorted(relevantes, key=lambda c: -scores[id(c)])[: self.top_k]
+        ordenados = sorted(relevantes, key=lambda c: -scores[clave_chunk(c)])[: self.top_k]
         return [
             ResultadoRecuperacion(
-                chunk=c,
+                chunk=self._por_clave[clave_chunk(c)],
                 fuente=_fuente(c),
-                score=scores[id(c)],
-                puntaje_bm25=bm25.get(id(c), 0.0),
-                similitud=sims.get(id(c)),
+                score=scores[clave_chunk(c)],
+                puntaje_bm25=bm25.get(clave_chunk(c), 0.0),
+                similitud=sims.get(clave_chunk(c)),
             )
             for c in ordenados
         ]
@@ -138,8 +160,8 @@ class Retriever:
 
 def construir_retriever(settings: Settings, chunks: list[Chunk]) -> Retriever:
     """Retriever real desde Settings. fastembed se importa solo al primer embed (perezoso)."""
+    from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
     from tiendahogar_agent.adaptadores.fastembed_embedder import FastEmbedEmbedder
-    from tiendahogar_agent.dobles import InMemoryVectorStore
 
     return Retriever(
         chunks=chunks,
