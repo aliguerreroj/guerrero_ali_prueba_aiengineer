@@ -14,3 +14,5 @@ chunk_strategy: auto
 chunk_umbral_corto: 1000
 chunk_tamano: 500
 chunk_solape: 50
+# Modelo de embeddings de fastembed (384 dim, ONNX, multilingue).
+embedding_model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2

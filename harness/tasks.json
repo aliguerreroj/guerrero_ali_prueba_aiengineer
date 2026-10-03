@@ -99,7 +99,7 @@
       "id": "T06",
       "fase": 1,
       "titulo": "Recuperación híbrida",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T05"
@@ -111,8 +111,8 @@
         "Los tests no usan red ni descargan modelos"
       ],
       "verificacion": "python -m pytest tests/test_hybrid_retrieval.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: APROBADO (1.ª vez), sin BLOQUEANTES. MENOR: (1) BM25Okapi con epsilon puede dar puntajes negativos en corpus diminutos (1 chunk o chunks idénticos); con los 5 docs reales no ocurre; T07 debe descartar puntajes <= 0 al aplicar la regla de relevancia. (2) las stopwords incluyen 'no' y 'sin' (se pierde la negación en la consulta; aceptable para recuperación). (3) el modelo por defecto está duplicado en config.py y en MODELO_POR_DEFECTO; FastEmbedEmbedder no lee Settings.embedding_model: cablear en T07. Brecha léxica conocida: '¿cuándo me devuelven el dinero?' da 0 en BM25 (doc4 dice 'reembolsos'/'devuelto', no 'dinero'); la cubre la parte semántica en T07."
     },
     {
       "id": "T07",

@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     chunk_umbral_corto: int = 1000  # caracteres; auto no divide documentos <= umbral
     chunk_tamano: int = 500
     chunk_solape: int = 50
+    # Embeddings (T06)
+    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+    @model_validator(mode="after")
+    def _validar_embedding(self) -> Settings:
+        if not self.embedding_model.strip():
+            raise ValueError("embedding_model no puede estar vacío")
+        return self
 
     @model_validator(mode="after")
     def _validar_chunking(self) -> Settings:

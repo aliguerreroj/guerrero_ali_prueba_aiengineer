@@ -7,7 +7,13 @@ name = "tiendahogar-agent"
 version = "0.1.0"
 description = "Agente de soporte al cliente de TiendaHogar (RAG + tool de pedidos + guardrails)"
 requires-python = ">=3.11"
-dependencies = ["pydantic-settings>=2.2", "pyyaml>=6.0"]
+dependencies = [
+    "pydantic-settings>=2.2",
+    "pyyaml>=6.0",
+    "rank-bm25>=0.2.2",
+    "snowballstemmer>=2.2",
+    "fastembed>=0.8",
+]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
@@ -18,6 +24,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# Los tests marcados integration (modelo real, red) se omiten por defecto;
+# se ejecutan con: python -m pytest -m integration
+addopts = "-m 'not integration'"
+markers = ["integration: usa el modelo real de embeddings (descarga/red); omitido por defecto"]
 
 [tool.ruff]
 line-length = 100
