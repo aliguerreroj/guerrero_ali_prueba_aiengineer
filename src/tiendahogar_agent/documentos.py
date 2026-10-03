@@ -189,7 +189,7 @@ class FileSystemDocumentSource:
             raise ErrorDocumentos(f"No se encontraron documentos .md en: {self._dir}")
         chunks: list[Chunk] = []
         for ruta in rutas:
-            texto = normalizar_saltos(ruta.read_text(encoding="utf-8")).strip()
+            texto = normalizar_saltos(ruta.read_text(encoding="utf-8-sig")).strip()
             if not texto:
                 raise ErrorDocumentos(f"El documento está vacío: {ruta.name}")
             titulo = extraer_titulo(texto, ruta.name)

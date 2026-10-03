@@ -106,3 +106,33 @@ def test_repositorio_cumple_puerto_y_es_inmutable():
     r = repo.consultar_estado_pedido("ORD-1001")
     r["estado"] = "alterado"
     assert repo.consultar_estado_pedido("ORD-1001")["estado"] == "En tránsito"
+
+
+def test_order_es_inmutable():
+    from pydantic import ValidationError
+
+    pedido = Order(order_id="ORD-1", producto="p", estado="e")
+    with pytest.raises(ValidationError):
+        pedido.estado = "alterado"  # type: ignore[misc]
+
+
+def test_tabla_mock_es_inmutable():
+    from tiendahogar_agent.pedidos import PEDIDOS_MOCK
+
+    with pytest.raises(TypeError):
+        PEDIDOS_MOCK["ORD-5555"] = Order(order_id="ORD-5555", producto="p", estado="e")  # type: ignore[index]
+
+
+def test_fallo_interno_devuelve_error_interno():
+    class RepoRoto:
+        def get(self, _clave):
+            raise RuntimeError("secreto interno")
+
+    repo = OrderRepositoryMock()
+    repo._pedidos = RepoRoto()  # type: ignore[assignment]
+    r = repo.consultar_estado_pedido("ORD-1001")
+    assert r["error"] == "error_interno"
+    assert r["order_id"] is None
+    assert r["mensaje"] and "secreto" not in r["mensaje"] and "ORD-1001" not in r["mensaje"]
+    assert "producto" not in r and "estado" not in r
+    json.dumps(r)

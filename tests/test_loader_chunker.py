@@ -157,3 +157,10 @@ def test_errores_claros(tmp_path):
     (tmp_path / "doc1_v.md").write_text("  \n", encoding="utf-8")
     with pytest.raises(ErrorDocumentos, match="vacío"):
         FileSystemDocumentSource(tmp_path).cargar()
+
+
+def test_bom_utf8_tolerado(tmp_path):
+    (tmp_path / "doc1_prueba.md").write_bytes(b"\xef\xbb\xbf# Titulo con BOM\n\nContenido.\n")
+    chunks = FileSystemDocumentSource(tmp_path).cargar()
+    assert chunks[0].metadatos["titulo"] == "Titulo con BOM"
+    assert all("\ufeff" not in c.texto for c in chunks)

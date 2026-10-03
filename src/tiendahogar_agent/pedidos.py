@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any
 
 from tiendahogar_agent.models import Order
@@ -11,7 +13,7 @@ _FORMATO = re.compile(r"ORD-[0-9]{4}", re.ASCII)
 # Tope de longitud previo a cualquier procesamiento (evita trabajo con entradas enormes).
 _MAX_LONGITUD_ENTRADA = 64
 
-PEDIDOS_MOCK: dict[str, Order] = {
+PEDIDOS_MOCK: Mapping[str, Order] = MappingProxyType({
     p.order_id: p
     for p in (
         Order(order_id="ORD-1001", producto="Refrigeradora", estado="En tránsito",
@@ -23,7 +25,7 @@ PEDIDOS_MOCK: dict[str, Order] = {
         Order(order_id="ORD-1004", producto="Tostadora", estado="Cancelado",
               entrega_estimada=None),
     )
-}
+})
 
 
 def _normalizar(order_id: object) -> str | None:
@@ -37,7 +39,7 @@ def _normalizar(order_id: object) -> str | None:
 class OrderRepositoryMock:
     """Repositorio de pedidos en memoria con la tabla mock."""
 
-    def __init__(self, pedidos: dict[str, Order] | None = None) -> None:
+    def __init__(self, pedidos: Mapping[str, Order] | None = None) -> None:
         self._pedidos = dict(PEDIDOS_MOCK if pedidos is None else pedidos)
 
     def consultar_estado_pedido(self, order_id: str) -> dict[str, Any]:
@@ -48,6 +50,9 @@ class OrderRepositoryMock:
         Error (sin claves de pedido; la clave "error" solo existe en errores):
             {"order_id": "ORD-9999", "error": "no_encontrado", "mensaje": ...}
             {"order_id": None, "error": "formato_invalido", "mensaje": ...}
+            {"order_id": None, "error": "error_interno", "mensaje": ...}
+        "error_interno" es un fallo inesperado de la propia tool (no un dato del
+        cliente): el orquestador debe tratarlo como fallo seguro = escalar a un humano.
         Se usa la clave separada "error" (no "estado") para que un estado de pedido
         y un fallo de la consulta nunca se confundan. Normalización: se ignoran
         espacios (incluidos los internos, p. ej. "ORD - 1001") y mayúsculas/minúsculas;
@@ -72,8 +77,8 @@ class OrderRepositoryMock:
         except Exception:  # noqa: BLE001  defensa final: la tool jamás propaga excepciones
             return {
                 "order_id": None,
-                "error": "formato_invalido",
-                "mensaje": "No pude interpretar el número de pedido.",
+                "error": "error_interno",
+                "mensaje": "No pude consultar el pedido por un problema interno.",
             }
 
 
@@ -82,5 +87,6 @@ _REPOSITORIO_POR_DEFECTO = OrderRepositoryMock()
 
 def consultar_estado_pedido(order_id: str) -> dict:
     """Tool: consulta el estado de un pedido. Ver OrderRepositoryMock.consultar_estado_pedido
-    para la forma exacta del dict (éxito, no_encontrado, formato_invalido)."""
+    para la forma exacta del dict (éxito, no_encontrado, formato_invalido,
+    error_interno; este último debe escalarse a un humano)."""
     return _REPOSITORIO_POR_DEFECTO.consultar_estado_pedido(order_id)

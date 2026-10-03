@@ -32,9 +32,9 @@ class Chunk(BaseModel):
 
 
 class Order(BaseModel):
-    """Pedido de la tabla de pedidos."""
+    """Pedido de la tabla de pedidos (inmutable)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     order_id: str
     producto: str
