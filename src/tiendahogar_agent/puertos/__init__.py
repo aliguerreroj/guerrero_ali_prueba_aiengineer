@@ -16,6 +16,7 @@ class LLMClient(Protocol):
         mensajes: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         """Envía mensajes (y definiciones de tools opcionales); devuelve texto y/o llamadas a tools."""
         ...

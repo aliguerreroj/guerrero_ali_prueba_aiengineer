@@ -566,3 +566,19 @@ def test_ida_y_vuelta_azure():
     de_vuelta = AzureOpenAILLM._interpretar(_resp_openai(enviado[1]["content"], reenviadas))
     assert _comparable(de_vuelta.llamadas_tools) == _comparable(respuesta.llamadas_tools)
     assert [m["tool_call_id"] for m in enviado[2:]] == ["c1", "c2"]
+
+
+def test_anthropic_max_tokens_por_llamada_sobrescribe():
+    cliente, reg = _cliente_anthropic(_resp_anthropic([NS(type="text", text="ok")]))
+    llm = AnthropicLLM(_settings(llm_max_tokens=64), cliente=cliente)
+    llm.completar(MENSAJES, max_tokens=16)
+    llm.completar(MENSAJES)
+    assert reg.llamadas[0]["max_tokens"] == 16
+    assert reg.llamadas[1]["max_tokens"] == 64
+
+
+def test_azure_max_tokens_por_llamada_sobrescribe():
+    cliente, reg = _cliente_openai(_resp_openai("ok"))
+    llm = AzureOpenAILLM(_settings_azure(llm_max_tokens=64), cliente=cliente)
+    llm.completar(MENSAJES, max_tokens=16)
+    assert reg.llamadas[0]["max_completion_tokens"] == 16

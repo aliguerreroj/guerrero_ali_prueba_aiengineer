@@ -88,12 +88,13 @@ class AzureOpenAILLM:
         mensajes: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         validar_historial(mensajes)
         parametros: dict[str, Any] = {
             "model": self._deployment,
             "messages": _traducir_mensajes(mensajes),
-            "max_completion_tokens": self._max_tokens,
+            "max_completion_tokens": max_tokens if max_tokens is not None else self._max_tokens,
         }
         if tools:
             parametros["tools"] = [_traducir_tool(t) for t in tools]

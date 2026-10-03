@@ -79,3 +79,11 @@ def test_recuperacion_valores_invalidos():
     with pytest.raises(ValidationError):
         Settings(top_k=0)
     assert Settings(umbral_bm25=2, umbral_semantico=0.1).umbral_bm25 == 2
+
+
+def test_clasificador_llm_config():
+    s = Settings()
+    assert s.usar_clasificador_llm is False
+    assert s.max_tokens_clasificador >= 1
+    with pytest.raises(ValidationError):
+        Settings(max_tokens_clasificador=0)

@@ -284,7 +284,7 @@
       "id": "T15",
       "fase": 3,
       "titulo": "Clasificador de intención",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T12"
@@ -294,9 +294,9 @@
         "Capa LLM tras las reglas deterministas; con FakeLLM es determinista"
       ],
       "verificacion": "python -m pytest tests/test_intent.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
-    },
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. MENOR: clasificador.py importa _leer_plantilla y _neutralizar privados de prompts.py; el enmascarado de PII no cubre nombres ni direcciones; un LLM propio sin max_tokens en completar da TypeError (bug de programacion); falta integrarlo en el flujo (T14)."
+  },
     {
       "id": "T16",
       "fase": 3,

@@ -251,3 +251,11 @@ def test_llm_texto_solo_invisibles_es_vacio():
     llm = FakeLLM([LLMResponse(texto=INVISIBLES)])
     r = llamar_llm_seguro(llm, MSGS, Settings())
     _es_fallo_seguro(r, "llm_respuesta_vacia")
+
+
+def test_llamar_llm_seguro_propaga_max_tokens_opcional():
+    llm = FakeLLM([FakeLLM.texto("a"), FakeLLM.texto("b")])
+    llamar_llm_seguro(llm, MSGS, Settings(), max_tokens=33)
+    llamar_llm_seguro(llm, MSGS, Settings())
+    assert llm.llamadas[0]["max_tokens"] == 33
+    assert llm.llamadas[1]["max_tokens"] is None

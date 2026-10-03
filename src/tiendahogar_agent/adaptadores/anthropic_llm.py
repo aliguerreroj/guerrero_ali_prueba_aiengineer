@@ -90,13 +90,14 @@ class AnthropicLLM:
         mensajes: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         validar_historial(mensajes)
         sistema = "\n\n".join(str(m["content"]) for m in mensajes if m.get("role") == "system")
         conversacion = _traducir_mensajes([m for m in mensajes if m.get("role") != "system"])
         parametros: dict[str, Any] = {
             "model": self._modelo,
-            "max_tokens": self._max_tokens,
+            "max_tokens": max_tokens if max_tokens is not None else self._max_tokens,
             "messages": conversacion,
         }
         if sistema:

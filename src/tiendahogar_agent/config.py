@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     timeout_tool_s: float = 5
     max_reintentos_llm: int = 2
     llm_max_tokens: int = 1024
+    # Clasificador de intención (T15): capa LLM opcional tras las reglas; apagada por defecto.
+    usar_clasificador_llm: bool = False
+    max_tokens_clasificador: int = 96
     anthropic_api_key: SecretStr | None = None
     # Azure OpenAI (opcionales; el «modelo» es el nombre del deployment)
     azure_openai_api_key: SecretStr | None = None
@@ -91,6 +94,8 @@ class Settings(BaseSettings):
             raise ValueError("timeout_tool_s debe estar en (0, 60] segundos")
         if self.llm_max_tokens < 1:
             raise ValueError("llm_max_tokens debe ser >= 1")
+        if self.max_tokens_clasificador < 1:
+            raise ValueError("max_tokens_clasificador debe ser >= 1")
         if not 0 <= self.max_reintentos_llm <= 5:
             raise ValueError("max_reintentos_llm debe estar entre 0 y 5")
         return self

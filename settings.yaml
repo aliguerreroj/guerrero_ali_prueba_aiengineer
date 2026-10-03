@@ -4,6 +4,9 @@
 llm_provider: fake
 llm_model: claude-haiku-4-5-20251001
 llm_max_tokens: 1024
+# Clasificador de intención (T15): capa LLM tras las reglas deterministas (solo puede agregar escalamientos).
+usar_clasificador_llm: false
+max_tokens_clasificador: 96
 azure_openai_api_version: "2024-10-21"  # entre comillas: si no, YAML lo lee como fecha
 top_k: 3
 # Relevancia sobre puntajes ORIGINALES (no sobre RRF): chunk relevante si BM25 > umbral_bm25

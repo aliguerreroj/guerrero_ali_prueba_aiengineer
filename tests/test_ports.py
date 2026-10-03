@@ -192,3 +192,11 @@ def test_ningun_modulo_de_src_importa_dobles():
             else:
                 continue
             assert "tiendahogar_agent.dobles" not in nombres, archivo
+
+
+def test_fake_llm_registra_max_tokens():
+    llm = FakeLLM([FakeLLM.texto("a"), FakeLLM.texto("b")])
+    llm.completar([{"role": "user", "content": "x"}], max_tokens=40)
+    llm.completar([{"role": "user", "content": "x"}])
+    assert llm.llamadas[0]["max_tokens"] == 40
+    assert llm.llamadas[1]["max_tokens"] is None

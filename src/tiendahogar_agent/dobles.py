@@ -59,9 +59,12 @@ class FakeLLM:
         mensajes: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         validar_historial(mensajes)  # detecta historiales con tools mal formados
-        self.llamadas.append({"mensajes": mensajes, "tools": tools, "timeout": timeout})
+        self.llamadas.append(
+            {"mensajes": mensajes, "tools": tools, "timeout": timeout, "max_tokens": max_tokens}
+        )
         if not self._cola:
             raise RuntimeError("FakeLLM: no quedan respuestas guionizadas")
         siguiente = self._cola.pop(0)
