@@ -116,5 +116,32 @@
     ],
     "notas": "Seguimiento tras consultar ORD-1003 (Lavadora, Procesando, 6 días hábiles): ser empático, repetir el dato real y aclarar que no hay información sobre envíos urgentes; cita «pedidos». El sistema reconsulta el pedido del historial en cada turno. Caso real que antes falló por fuente_no_recuperada.",
     "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo2-03-reportar-trato-empleado",
+    "pregunta": "Quiero reportar el trato de un empleado",
+    "accion_esperada": "escalar",
+    "fuentes_esperadas": [],
+    "notas": "Reportar el trato de un empleado es una queja de trato (doc5): escalar con el canal soporte@tiendahogar.example. Caso real que antes devolvió texto que remitía a soporte pero con accion=responder y sin canal; ahora lo detectan las reglas de entrada (T08) y la acción es escalar.",
+    "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo2-04-atendio-pesimo-vendedor",
+    "pregunta": "Me atendió pésimo el vendedor y quiero quejarme",
+    "accion_esperada": "escalar",
+    "fuentes_esperadas": [],
+    "notas": "Queja sobre el trato de un empleado con redacción coloquial (doc5): escalar con canal. Mismo caso real que vivo2-03: antes accion=responder y canal vacío pese a remitir a soporte.",
+    "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo2-05-canal-de-contacto",
+    "pregunta": "¿Cuál es el canal de contacto para soporte?",
+    "accion_esperada": "responder",
+    "fuentes_esperadas": [
+      "doc5"
+    ],
+    "notas": "Consulta informativa sobre canales: se informa el correo de soporte que indica doc5 y se mantiene accion=responder (el canal se informa, no se deriva un caso; excepción de ADR-008). Sin canal estructurado en la respuesta."
+    ,
+    "origen": "prueba_en_vivo_2"
   }
 ]

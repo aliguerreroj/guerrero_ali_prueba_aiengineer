@@ -74,6 +74,7 @@ def _responder(texto, fuentes=None, **extra):
 
 def _orq(retriever, *respuestas, **kw):
     llm = FakeLLM(list(respuestas))
+    kw.setdefault("usar_clasificador_llm", False)  # ADR-008: por defecto activado; apagado para guiar solo el bucle
     return Orquestador(llm, retriever, Settings(**kw)), llm
 
 
@@ -147,7 +148,7 @@ def test_chunks_de_otro_turno_no_sustentan(retriever):
         _responder("Los envíos a la capital tardan 2-3 días hábiles.", ["doc3"]),
         _responder("Los envíos a la capital tardan 2-3 días hábiles.", ["doc3"]),
     ])
-    orq = Orquestador(llm, retriever, Settings())
+    orq = Orquestador(llm, retriever, Settings(usar_clasificador_llm=False))
     assert orq.procesar("¿Cuánto tarda un envío a la capital?").accion == "responder"
     r = orq.procesar(LICUADORA)
     assert r.accion == "escalar" and r.respuesta == RESPUESTA_SEGURA

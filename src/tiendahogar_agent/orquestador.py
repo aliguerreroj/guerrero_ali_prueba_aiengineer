@@ -16,6 +16,8 @@ Flujo de `Orquestador.procesar` (el sistema decide la acción; el LLM solo redac
    id de pedido en el mensaje. Iteraciones agotadas o tool-calls inválidos son una falla real.
 7. Regla de acción: base `responder`; `accion_sugerida` del LLM solo se acepta si lleva hacia el
    lado más seguro (responder < pedir_dato < escalar). Nunca anula una decisión del sistema.
+   Además (ADR-008): si el texto remite a soporte@tiendahogar.example o cita doc5, la acción sube a
+   `escalar`, salvo que el cliente pregunte por los canales de contacto (`pregunta_por_canal`).
 8. `verificar_salida` corre siempre antes de entregar; si no pasa, se escala con su respuesta.
 
 Decisiones:
@@ -89,7 +91,7 @@ from tiendahogar_agent.resiliencia import (
     revisar_resultado_tool,
 )
 from tiendahogar_agent.retriever import Retriever
-from tiendahogar_agent.texto import es_vacio_visible
+from tiendahogar_agent.texto import es_vacio_visible, quitar_tildes
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,15 @@ _PATRON_PEDIDO = re.compile(r"ord\s*-?\s*\d", re.IGNORECASE)
 _PATRON_ID_ESTRICTO = re.compile(r"(?<![A-Za-z0-9])ORD-[0-9]{4}(?![0-9])", re.IGNORECASE | re.ASCII)
 MAX_IDS_RECONSULTA = 3
 _ERRORES_DE_DATO = ("no_encontrado", "formato_invalido")
+FUENTE_CANALES = "doc5"
+# Excepción de ADR-008: el cliente PREGUNTA por los canales/medios de contacto (texto sin tildes).
+# Acotada a propósito; ante la duda no aplica y la respuesta que remite a soporte escala.
+_PREGUNTA_CANAL = re.compile(
+    r"\bcanal(?:es)?\b|\bcontact(?:o|os|ar|arlos|arnos|arlo|arte)\b|\bcomunicarme\b|\btelefono\b"
+    r"|\bcorreo\s+de\s+soporte\b|\bhorario\s+de\s+atencion\b"
+    r"|\b(?:donde|como)\s+(?:puedo\s+)?(?:escribo|escribir|reporto|reportar)\b"
+    r"|\bcomo\s+(?:puedo\s+)?hablo\s+con\s+soporte\b"
+)
 
 MENSAJE_PEDIR_DATO = (
     "Hola, con gusto te ayudo. Cuéntame qué necesitas: puedo resolver dudas sobre garantía, "
@@ -157,6 +168,16 @@ def accion_mas_segura(base: str, sugerida: Any) -> str:
     if isinstance(sugerida, str) and _ORDEN_SEGURIDAD.get(sugerida, -1) > _ORDEN_SEGURIDAD[base]:
         return sugerida
     return base
+
+
+def pregunta_por_canal(mensaje: str) -> bool:
+    """¿El cliente pregunta por los canales/medios de contacto? (heurística acotada, ADR-008)."""
+    return bool(_PREGUNTA_CANAL.search(quitar_tildes(mensaje)))
+
+
+def _remite_al_canal_humano(texto: str, fuentes: list[str]) -> bool:
+    """El texto nombra el canal humano (sin tildes ni mayúsculas) o la respuesta cita doc5."""
+    return CANAL_ESCALAMIENTO in quitar_tildes(texto) or FUENTE_CANALES in fuentes
 
 
 def _resumir(texto: str) -> str:
@@ -368,7 +389,9 @@ class Orquestador:
                     "bucle_sin_respuesta", trace_id, detalle="más de una llamada a responder"
                 ).respuesta
             if finales and _error_argumentos_responder(finales[0].argumentos) is None:
-                return self._entregar(finales[0].argumentos, evidencia, usuario, trace_id)
+                return self._entregar(
+                    finales[0].argumentos, evidencia, usuario, trace_id, mensaje
+                )
             intento_tools = True
             for llamada in llamadas:
                 resultado = self._ejecutar(llamada, evidencia, trace_id)
@@ -464,7 +487,12 @@ class Orquestador:
 
     # ------------------------------------------------------------------ entrega
     def _entregar(
-        self, args: dict[str, Any], evidencia: _Evidencia, usuario: str, trace_id: str
+        self,
+        args: dict[str, Any],
+        evidencia: _Evidencia,
+        usuario: str,
+        trace_id: str,
+        mensaje: str = "",
     ) -> AgentResponse:
         sugerida = args.get("accion_sugerida")
         if sugerida is not None and sugerida not in ACCIONES_SUGERIBLES:
@@ -479,6 +507,12 @@ class Orquestador:
             # sigue verificando cifras y las demás fuentes.
             fuentes = [f for f in fuentes if f != FUENTE_PEDIDOS]
             logger.info("fuente pedidos retirada (sin pedido valido) trace_id=%s", trace_id)
+        if _remite_al_canal_humano(args["respuesta"], fuentes) and not pregunta_por_canal(mensaje):
+            # ADR-008: si el texto remite a soporte, la acción debe decirlo (solo sube, nunca baja).
+            # Si no trae el canal, verificar_salida (R_CANAL) lo cambia por la respuesta segura.
+            if accion != "escalar":
+                logger.info("remision a soporte detectada: se escala trace_id=%s", trace_id)
+            accion = accion_mas_segura(accion, "escalar")
         if not fuentes and evidencia.solo_errores_de_dato_en_turno:
             # Solo hubo ids inexistentes/inválidos y no se cita nada: la respuesta necesariamente
             # pide revisar el número. Lado seguro: pedir_dato (entre responder y escalar).

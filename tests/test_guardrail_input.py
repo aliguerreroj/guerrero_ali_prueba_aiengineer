@@ -426,3 +426,60 @@ def test_es_vacio_visible():
     assert es_vacio_visible("\u200b\ufeff\u00a0\x07")
     assert es_vacio_visible("")
     assert not es_vacio_visible("\u200bhola")
+
+
+# ---------------------------------------------------------------- ronda 2: quejas de trato naturales
+@pytest.mark.parametrize(
+    "m",
+    [
+        "Quiero reportar el trato de un empleado",
+        "Me atendió pésimo el vendedor y quiero quejarme",
+        "Quiero reportar al vendedor por su trato",
+        "queja de la actitud del empleado",
+        "queja sobre cómo me habló el vendedor",
+        "quiero hablar con un supervisor sobre cómo me trató el empleado",
+        "El vendedor me atendió horrible",
+        "queja de la amabilidad del vendedor",
+        "reporte sobre el trato del cajero",
+        "denuncio el trato del gerente",
+        "el vendedor me habló mal",
+        "Me atendieron fatal, el asesor era un maleducado",
+        "Quiero denunciar la conducta del empleado",
+    ],
+)
+def test_queja_trato_redaccion_natural_escala_por_reglas(m):
+    r = _ev(m)
+    assert r.escalar and r.accion == "escalar" and r.canal == CANAL_ESCALAMIENTO, m
+    assert r.categoria in ("queja_trato", "legal"), m  # «denuncio» cae en legal (precede)
+
+
+@pytest.mark.parametrize(
+    "m",
+    [
+        "¿Cómo atienden los repartidores los pedidos?",
+        "Tengo dudas sobre cómo atienden a los clientes",
+        "El vendedor me atendió muy bien, gracias",
+        "el vendedor me atendió excelente pero quiero preguntar por la garantía",
+        "quiero reportar que mi pedido no llegó",
+        "quiero reportar un producto defectuoso",
+        "no tengo ninguna queja de cómo me atendió el vendedor",
+        "No me atendió mal el vendedor",
+        "¿cuál es el horario de atención?",
+        "¿cómo reporto un problema con mi lavadora?",
+        "El reporte del clima dice que lloverá",
+        "keja del vendedor",
+    ],
+)
+def test_queja_trato_redaccion_natural_falsos_positivos(m):
+    assert not _ev(m).escalar, m
+
+
+def test_queja_trato_ronda2_entrada_larga_sin_backtracking():
+    import time
+
+    t0 = time.perf_counter()
+    _ev("reportar trato " * 5000)
+    _ev("me atendio mal " * 5000)
+    _ev("reportar " * 20000 + "trato " * 20000)
+    _ev("hablar con supervisor " * 5000 + "como me trato " * 5000)
+    assert time.perf_counter() - t0 < 2

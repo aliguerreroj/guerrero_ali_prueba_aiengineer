@@ -35,6 +35,10 @@ RESP_URGENTE = (
     "Entiendo que lo necesitas con urgencia. Tu pedido ORD-1003 (Lavadora) está Procesando con "
     "entrega estimada de 6 días hábiles; no tengo información sobre envíos urgentes."
 )
+TEXTO_ESCALA = (
+    "Lamento esa experiencia. Esto lo revisa nuestro equipo humano: escríbele a "
+    "soporte@tiendahogar.example y te ayudarán."
+)
 RESP_NO_EXISTE = "No encontré un pedido con el número ORD-9999. ¿Puedes revisar el número?"
 
 
@@ -67,7 +71,7 @@ def _responder(texto, fuentes=None, **extra):
 
 def _orq(retriever, *respuestas, pedidos=None):
     llm = FakeLLM(list(respuestas))
-    return Orquestador(llm, retriever, Settings(), pedidos), llm
+    return Orquestador(llm, retriever, Settings(usar_clasificador_llm=False), pedidos), llm
 
 
 class _RepoEspia:
@@ -219,6 +223,13 @@ def test_golden_de_la_segunda_prueba_se_cumple_con_fakellm(retriever):
     guiones = {
         "vivo2-01-pedido-inexistente": _responder(RESP_NO_EXISTE, ["pedidos"]),
         "vivo2-02-seguimiento-urgente": _responder(RESP_URGENTE, ["pedidos"]),
+        # Escalan por reglas (T08): el LLM solo redacta el aviso, sin tools.
+        "vivo2-03-reportar-trato-empleado": FakeLLM.texto(TEXTO_ESCALA),
+        "vivo2-04-atendio-pesimo-vendedor": FakeLLM.texto(TEXTO_ESCALA),
+        # Pregunta por canales: se informa el canal citando doc5 y se mantiene `responder` (ADR-008).
+        "vivo2-05-canal-de-contacto": _responder(
+            "Puedes escribir a soporte@tiendahogar.example para tus consultas.", ["doc5"]
+        ),
     }
     assert set(nuevos) == set(guiones)
     for id_caso, caso in nuevos.items():

@@ -7,7 +7,7 @@ llm_max_tokens: 1024
 # Orquestador (T14): máximo de llamadas al LLM por turno (bucle de tool use), >= 1.
 max_iteraciones_llm: 5
 # Clasificador de intención (T15): capa LLM tras las reglas deterministas (solo puede agregar escalamientos).
-usar_clasificador_llm: false
+usar_clasificador_llm: true
 max_tokens_clasificador: 96
 azure_openai_api_version: "2024-10-21"  # entre comillas: si no, YAML lo lee como fecha
 top_k: 3

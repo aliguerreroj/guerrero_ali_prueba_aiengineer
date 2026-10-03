@@ -21,6 +21,10 @@ Decisiones:
   "$0.800" se interpreta como decimal (0.8); la palabra "legal" suelta escala por
   fallo seguro; las ventanas acotadas (60 caracteres) no ligan empleado y adjetivo
   si están más lejos.
+- Falsos positivos tolerados por fallo seguro (queja de trato, ronda 2): «tengo una queja de cómo
+  me atendió el vendedor» (sin juicio explícito) escala; «reportar/denunciar» + aspecto del trato
+  + rol escala aunque el cliente solo pregunte cómo hacerlo; «me atendió/habló mal» + rol escala
+  aunque el mal trato no sea del rol mencionado. Faltas de ortografía («keja») no se detectan.
 """
 
 from __future__ import annotations
@@ -170,7 +174,30 @@ _ROL = (
     r"representante|repartidor|repartidora|tecnico|tecnica|conductor|conductora|supervisor|supervisora)"
 )
 _QUEJAR = re.compile(r"\b(?:quej\w*|reclam\w*)\b")
-_TRATO_O_ATENCION = re.compile(r"\b(?:trato|atencion)\b")
+_COMO_ME = r"como\s+me\s+(?:hablo|hablaron|trato|trataron|atendio|atendieron)"
+_TRATO_O_ATENCION = re.compile(
+    rf"\b(?:trato|atencion|actitud|amabilidad|conducta|forma\s+de\s+hablar|{_COMO_ME})\b"
+)
+# «reportar/denunciar» + aspecto del trato + rol (sin «atención»: «reporte de atención» es ambiguo).
+_REPORTAR = re.compile(r"\b(?:report\w*|denunci\w*)\b")
+_ASPECTO_TRATO = re.compile(
+    rf"\b(?:trato|actitud|amabilidad|conducta|forma\s+de\s+hablar|{_COMO_ME})\b"
+)
+# «me atendió pésimo/mal/horrible/fatal» (no «no me atendió mal») y «me habló mal».
+_ATENDIO_MAL = re.compile(
+    r"(?<!\bno\s)\bme\s+(?:atendio|atendieron|hablo|hablaron)\s+(?:muy\s+|tan\s+)?"
+    r"(?:pesimo|pesima|mal|horrible|fatal|feo|terrible)\b"
+)
+# «quiero hablar con un supervisor sobre cómo me trató el empleado»: el rol debe ser otro.
+_HABLAR_SUPERVISOR = re.compile(
+    r"\b(?:hablar|conversar|reunirme)\s+con\s+(?:un\s+|el\s+|la\s+)?"
+    r"(?:supervisor|supervisora|gerente|encargado|encargada)\b"
+)
+_ROL_NO_SUPERVISOR_RE = re.compile(
+    r"\b(?:empleado|empleada|vendedor|vendedora|asesor|asesora|cajero|cajera|personal|agente|mesero|"
+    r"mesera|dependiente|trabajador|trabajadora|funcionario|funcionaria|representante|repartidor|"
+    r"repartidora|tecnico|tecnica|conductor|conductora)\b"
+)
 _ROL_RE = re.compile(rf"\b{_ROL}\b")
 # «no tengo ninguna queja», «sin queja alguna»: se retira antes de evaluar la categoría.
 _NEGACION_QUEJA = re.compile(
@@ -180,6 +207,9 @@ _NEGACION_QUEJA = re.compile(
 
 _REGLAS_TRATO = [
     ("trato_queja_rol", _ReglaVentana(_QUEJAR, _TRATO_O_ATENCION, _ROL_RE)),
+    ("trato_reporte_rol", _ReglaVentana(_REPORTAR, _ASPECTO_TRATO, _ROL_RE)),
+    ("trato_atendio_mal_rol", _ReglaVentana(_ATENDIO_MAL, _ROL_RE)),
+    ("trato_supervisor_rol", _ReglaVentana(_HABLAR_SUPERVISOR, _ASPECTO_TRATO, _ROL_NO_SUPERVISOR_RE)),
     ("trato_maltrato", _re(
         r"\bmaltrat\w*", r"\bmal\s+trato\b", r"\bme\s+trat(?:o|aron)\s+mal\b",
         r"\btrato\s+(?:pesimo|horrible|inaceptable|grosero|indebido|humillante|malo)\b",

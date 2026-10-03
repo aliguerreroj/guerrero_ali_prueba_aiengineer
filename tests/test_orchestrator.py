@@ -76,6 +76,7 @@ def _responder(respuesta, fuentes=None, **extra):
 
 def _orq(retriever, *respuestas, settings=None, pedidos=None, **kw):
     llm = FakeLLM(list(respuestas))
+    kw.setdefault("usar_clasificador_llm", False)  # ADR-008: activado por defecto; aquí apagado para guiar solo el bucle
     s = settings or Settings(**kw)
     return Orquestador(llm, retriever, s, pedidos=pedidos), llm
 
@@ -333,7 +334,7 @@ def test_fallo_del_retriever_escala(retriever):
             raise ErrorRecuperacion("índice dañado")
 
     llm = FakeLLM([_buscar()])
-    r = Orquestador(llm, RetrieverRoto(), Settings()).procesar("¿Cuánto dura la garantía?")
+    r = Orquestador(llm, RetrieverRoto(), Settings(usar_clasificador_llm=False)).procesar("¿Cuánto dura la garantía?")
     _assert_fallo_seguro(r)
 
 

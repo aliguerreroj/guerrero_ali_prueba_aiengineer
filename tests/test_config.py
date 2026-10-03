@@ -83,7 +83,7 @@ def test_recuperacion_valores_invalidos():
 
 def test_clasificador_llm_config():
     s = Settings()
-    assert s.usar_clasificador_llm is False
+    assert s.usar_clasificador_llm is True  # ADR-008: activado por defecto
     assert s.max_tokens_clasificador >= 1
     with pytest.raises(ValidationError):
         Settings(max_tokens_clasificador=0)

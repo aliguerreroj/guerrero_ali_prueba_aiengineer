@@ -60,6 +60,9 @@ def construir_orquestador(settings: Settings, docs: Path = DOCS_POR_DEFECTO) -> 
     """Orquestador real. `fake`: LLMDemo + retriever léxico; otro proveedor: LLM y retriever híbrido."""
     chunks = FileSystemDocumentSource.desde_settings(docs, settings).cargar()
     if settings.llm_provider == "fake":
+        # LLMDemo no sabe clasificar (no tiene la tool de clasificación): con el clasificador
+        # activado por defecto (ADR-008) solo ensuciaría los logs con fallos. Con `fake` se apaga.
+        settings = settings.model_copy(update={"usar_clasificador_llm": False})
         llm = LLMDemo()
         retriever = Retriever(
             chunks, IndiceLexico(chunks), EmbedderConstante(), InMemoryVectorStore(),

@@ -211,8 +211,8 @@ def test_resultado_intencion_inconsistente_es_invalido():
 # ---------------------------------------------------------------- aplicar
 def test_aplicar_desactivado_no_llama_al_llm():
     llm = FakeLLM([_tool({"intencion": "escalar", "categoria": "legal"})])
-    d, i = aplicar_clasificador("hola", SIN_REGLAS, llm, Settings())
-    assert Settings().usar_clasificador_llm is False
+    d, i = aplicar_clasificador("hola", SIN_REGLAS, llm, Settings(usar_clasificador_llm=False))
+    assert Settings(usar_clasificador_llm=False).usar_clasificador_llm is False
     assert d == SIN_REGLAS and i is None and llm.llamadas == []
 
 
@@ -277,7 +277,7 @@ def test_pii_no_llega_al_llm():
 # ---------------------------------------------------------------- config
 def test_config_por_defecto_y_validacion(monkeypatch):
     s = Settings()
-    assert s.usar_clasificador_llm is False
+    assert s.usar_clasificador_llm is True  # ADR-008: activado por defecto
     assert 1 <= s.max_tokens_clasificador <= 128
     with pytest.raises(ValidationError):
         Settings(max_tokens_clasificador=0)

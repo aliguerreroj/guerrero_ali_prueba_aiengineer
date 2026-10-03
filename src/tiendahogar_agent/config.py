@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1024
     # Orquestador (T14): máximo de llamadas al LLM por turno en el bucle de tool use.
     max_iteraciones_llm: int = 5
-    # Clasificador de intención (T15): capa LLM opcional tras las reglas; apagada por defecto.
-    usar_clasificador_llm: bool = False
+    # Clasificador de intención (T15): capa LLM tras las reglas; ACTIVADA por defecto (ADR-008).
+    usar_clasificador_llm: bool = True
     max_tokens_clasificador: int = 96
     anthropic_api_key: SecretStr | None = None
     # Azure OpenAI (opcionales; el «modelo» es el nombre del deployment)

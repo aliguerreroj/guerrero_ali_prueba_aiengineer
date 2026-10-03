@@ -21,9 +21,9 @@ def casos():
     return json.loads(RUTA.read_text(encoding="utf-8"))
 
 
-def test_hay_doce_casos_con_ids_unicos(casos):
-    assert isinstance(casos, list) and len(casos) == 12
-    assert len({c["id"] for c in casos}) == 12
+def test_hay_quince_casos_con_ids_unicos(casos):
+    assert isinstance(casos, list) and len(casos) == 15
+    assert len({c["id"] for c in casos}) == 15
     assert sum(c["origen"] == "prueba_en_vivo" for c in casos) == 10
 
 
