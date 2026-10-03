@@ -3,10 +3,11 @@
 `LLMDemo` implementa el puerto `LLMClient` con reglas fijas, solo para poder chatear en la CLI sin
 API key. No es un modelo: no razona ni inventa; solo encadena las tools del orquestador.
 - Si el mensaje menciona un pedido (`ORD-####`): llama `consultar_estado_pedido` y redacta con
-  su resultado (éxito, no encontrado o formato inválido).
-- Si no: llama `buscar_politicas` con el mensaje y responde con el comienzo del primer fragmento,
-  citando su fuente. Sin fragmentos relevantes, dice que no tiene el dato y sugiere el canal humano
-  (acción sugerida `escalar`).
+  su resultado (éxito citando «pedidos», no encontrado o formato inválido).
+- Si no: usa los documentos que el orquestador ya inyectó en el contexto del turno (no llama
+  `buscar_politicas`) y responde con el comienzo del primer fragmento, citando su `id`. Sin
+  documentos relevantes responde con el mensaje amable de fuera de alcance (`responder`, sin
+  fuentes ni escalar).
 Es independiente de `dobles` (que es solo para tests); `EmbedderConstante` evita descargar modelos
 de embeddings: con umbral semántico imposible el retriever queda en la práctica solo en BM25.
 """
@@ -19,8 +20,9 @@ import json
 import re
 from typing import Any
 
-from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO
+from tiendahogar_agent.guardrail_output import FUENTE_PEDIDOS
 from tiendahogar_agent.models import LlamadaTool, LLMResponse
+from tiendahogar_agent.orquestador import MENSAJE_FUERA_DE_ALCANCE
 
 _PEDIDO = re.compile(r"ORD\s*-?\s*\d{4}", re.IGNORECASE)
 _DOCUMENTO = re.compile(r'<documento id="([^"]*)" fuente="[^"]*">\n(.*?)\n</documento>', re.DOTALL)
@@ -61,18 +63,16 @@ class LLMDemo:
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
         max_tokens: int | None = None,
+        tool_choice: str | None = None,
     ) -> LLMResponse:
         usuario, resultado = self._situacion(mensajes)
-        if resultado is None:
-            pedido = _PEDIDO.search(usuario)
-            if pedido:
-                digitos = pedido.group(0)[-4:]
-                return self._llamada("consultar_estado_pedido", {"order_id": f"ORD-{digitos}"})
-            return self._llamada("buscar_politicas", {"consulta": usuario})
-        nombre, contenido = resultado
-        if nombre == "consultar_estado_pedido":
-            return self._responder(*self._redactar_pedido(contenido))
-        return self._responder(*self._redactar_politica(contenido))
+        if resultado is not None:
+            return self._responder(*self._redactar_pedido(resultado[1]))
+        pedido = _PEDIDO.search(usuario)
+        if pedido:
+            digitos = pedido.group(0)[-4:]
+            return self._llamada("consultar_estado_pedido", {"order_id": f"ORD-{digitos}"})
+        return self._responder(*self._redactar_politica(mensajes))
 
     # ------------------------------------------------------------------ interno
     def _llamada(self, nombre: str, argumentos: dict[str, Any]) -> LLMResponse:
@@ -130,16 +130,15 @@ class LLMDemo:
         )
         if datos.get("entrega_estimada"):
             texto += f" La entrega estimada es en {datos['entrega_estimada']}."
-        return texto, [], None
+        return texto, [FUENTE_PEDIDOS], None
 
     @staticmethod
-    def _redactar_politica(datos: dict[str, Any]) -> tuple[str, list[str], str | None]:
-        bloque = _DOCUMENTO.search(datos.get("contexto", "")) if datos.get("fragmentos") else None
+    def _redactar_politica(mensajes: list[dict[str, Any]]) -> tuple[str, list[str], str | None]:
+        contexto = "\n".join(
+            str(m.get("content", "")) for m in mensajes if m.get("role") == "system"
+        )
+        bloque = _DOCUMENTO.search(contexto)
         if bloque is None:
-            return (
-                ("No encontré esa información en nuestros documentos, así que prefiero no "
-                 f"inventarla. Escríbele a nuestro equipo en {CANAL_ESCALAMIENTO} y te ayudarán."),
-                [], "escalar",
-            )
+            return MENSAJE_FUERA_DE_ALCANCE, [], None
         ident, texto = bloque.group(1), html.unescape(bloque.group(2))
         return f"Según nuestras políticas: {_recortar(texto)}", [html.unescape(ident)], None

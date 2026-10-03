@@ -60,11 +60,15 @@ class FakeLLM:
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
         max_tokens: int | None = None,
+        tool_choice: str | None = None,
     ) -> LLMResponse:
         validar_historial(mensajes)  # detecta historiales con tools mal formados
         self.llamadas.append(
             # copia superficial: el orquestador sigue agregando mensajes a su lista tras la llamada
-            {"mensajes": list(mensajes), "tools": tools, "timeout": timeout, "max_tokens": max_tokens}
+            {
+                "mensajes": list(mensajes), "tools": tools, "timeout": timeout,
+                "max_tokens": max_tokens, "tool_choice": tool_choice,
+            }
         )
         if not self._cola:
             raise RuntimeError("FakeLLM: no quedan respuestas guionizadas")

@@ -605,3 +605,40 @@ def test_adaptadores_rechazan_asistente_vacio_sin_tools(vacio):
         _anthropic_enviado(historial)
     with pytest.raises(ErrorHistorialMensajes):
         _azure_enviado(historial)
+
+
+# ---------- tool_choice (abstracto en el puerto, traducido por cada adaptador) ----------
+
+
+def test_anthropic_traduce_tool_choice_any_y_auto():
+    cliente, reg = _cliente_anthropic(_resp_anthropic([NS(type="text", text="ok")]))
+    llm = AnthropicLLM(_settings(), cliente=cliente)
+    llm.completar(MENSAJES, tools=[TOOL], tool_choice="any")
+    llm.completar(MENSAJES, tools=[TOOL], tool_choice="auto")
+    llm.completar(MENSAJES, tools=[TOOL])
+    assert reg.llamadas[0]["tool_choice"] == {"type": "any"}
+    assert reg.llamadas[1]["tool_choice"] == {"type": "auto"}
+    assert "tool_choice" not in reg.llamadas[2]
+
+
+def test_anthropic_tool_choice_sin_tools_se_omite_y_valor_invalido_falla():
+    cliente, reg = _cliente_anthropic(_resp_anthropic([NS(type="text", text="ok")]))
+    llm = AnthropicLLM(_settings(), cliente=cliente)
+    llm.completar(MENSAJES, tool_choice="any")
+    assert "tool_choice" not in reg.llamadas[0]
+    with pytest.raises(ValueError, match="tool_choice"):
+        llm.completar(MENSAJES, tools=[TOOL], tool_choice="inventado")
+
+
+def test_azure_traduce_tool_choice_any_a_required():
+    cliente, reg = _cliente_openai(_resp_openai("ok"))
+    llm = AzureOpenAILLM(_settings_azure(), cliente=cliente)
+    llm.completar(MENSAJES, tools=[TOOL], tool_choice="any")
+    llm.completar(MENSAJES, tools=[TOOL], tool_choice="auto")
+    llm.completar(MENSAJES, tools=[TOOL])
+    llm.completar(MENSAJES, tool_choice="any")
+    assert reg.llamadas[0]["tool_choice"] == "required"
+    assert reg.llamadas[1]["tool_choice"] == "auto"
+    assert "tool_choice" not in reg.llamadas[2] and "tool_choice" not in reg.llamadas[3]
+    with pytest.raises(ValueError, match="tool_choice"):
+        llm.completar(MENSAJES, tools=[TOOL], tool_choice="inventado")

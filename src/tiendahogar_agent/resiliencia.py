@@ -106,11 +106,14 @@ def llamar_llm_seguro(
     tools: list[dict[str, Any]] | None = None,
     trace_id: str = "",
     max_tokens: int | None = None,
+    tool_choice: str | None = None,
 ) -> LLMResponse | RespuestaFalloSeguro:
     """Llama al LLM con `settings.timeout_llm_s`; error o respuesta vacía -> fallo seguro."""
     try:
         # max_tokens solo se envía si se pide: los dobles/clientes sin ese parámetro siguen valiendo.
-        extra = {} if max_tokens is None else {"max_tokens": max_tokens}
+        extra: dict[str, Any] = {} if max_tokens is None else {"max_tokens": max_tokens}
+        if tool_choice is not None:
+            extra["tool_choice"] = tool_choice
         respuesta = llm.completar(mensajes, tools=tools, timeout=settings.timeout_llm_s, **extra)
     except ErrorLLM as exc:
         return fallar("llm_error", trace_id, exc)

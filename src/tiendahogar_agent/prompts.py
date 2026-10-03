@@ -13,9 +13,10 @@ from importlib import resources
 from typing import Any
 
 from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO
+from tiendahogar_agent.guardrail_output import FUENTE_PEDIDOS
 from tiendahogar_agent.retriever import ResultadoRecuperacion
 
-SIN_DOCUMENTOS = "No hay documentos relevantes para esta consulta."
+SIN_DOCUMENTOS = "No se recuperaron documentos relevantes para este mensaje."
 
 NOMBRE_TOOL_BUSCAR = "buscar_politicas"
 NOMBRE_TOOL_PEDIDO = "consultar_estado_pedido"
@@ -152,7 +153,10 @@ def definicion_tool_responder() -> dict[str, Any]:
                 "fuentes": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Identificadores de los documentos usados (p. ej. doc1).",
+                    "description": (
+                        "Identificadores de los documentos usados (p. ej. doc1). Si usaste "
+                        f"consultar_estado_pedido, incluye también «{FUENTE_PEDIDOS}»."
+                    ),
                 },
                 "accion_sugerida": {
                     "type": "string",

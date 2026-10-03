@@ -108,7 +108,7 @@ def test_contexto_vacio_indica_que_no_hay_documentos():
     for vacio in ([], ()):
         ctx = construir_contexto_documentos(vacio)
         assert "<documento" not in ctx
-        assert "no hay documentos relevantes" in ctx.lower()
+        assert "no se recuperaron documentos relevantes" in ctx.lower()
 
 
 def test_definicion_tool_responder_valida_y_compatible_con_adaptador():

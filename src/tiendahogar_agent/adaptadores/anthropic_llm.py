@@ -23,6 +23,16 @@ def _traducir_tool(tool: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_TOOL_CHOICE = {"auto": {"type": "auto"}, "any": {"type": "any"}}
+
+
+def _traducir_tool_choice(valor: str) -> dict[str, Any]:
+    """Valor abstracto del puerto (`auto`/`any`) -> `tool_choice` de Anthropic."""
+    if valor not in _TOOL_CHOICE:
+        raise ValueError(f"tool_choice no soportado: {valor!r} (use 'auto' o 'any')")
+    return dict(_TOOL_CHOICE[valor])
+
+
 def _traducir_mensajes(mensajes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Mensajes de dominio (sin system) -> formato Anthropic.
 
@@ -92,6 +102,7 @@ class AnthropicLLM:
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
         max_tokens: int | None = None,
+        tool_choice: str | None = None,
     ) -> LLMResponse:
         validar_historial(mensajes)
         sistema = "\n\n".join(str(m["content"]) for m in mensajes if m.get("role") == "system")
@@ -105,6 +116,8 @@ class AnthropicLLM:
             parametros["system"] = sistema
         if tools:
             parametros["tools"] = [_traducir_tool(t) for t in tools]
+            if tool_choice is not None:
+                parametros["tool_choice"] = _traducir_tool_choice(tool_choice)
         if timeout is not None:
             parametros["timeout"] = timeout
         try:

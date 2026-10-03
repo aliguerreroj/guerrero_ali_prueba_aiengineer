@@ -175,9 +175,10 @@ def test_responder_respeta_historial_en_dos_turnos(retriever):
     r2 = orq2.procesar("ORD-1002", historial=historial)
     assert r2.accion == "responder" and "Licuadora" in r2.respuesta
     roles = [m["role"] for m in llm2.llamadas[0]["mensajes"]]
-    assert roles == ["system", "user", "assistant", "user"]
+    # prompt, contexto de documentos del turno, historial y mensaje actual
+    assert roles == ["system", "system", "user", "assistant", "user"]
     assert llm2.llamadas[0]["mensajes"][-1]["content"] == "ORD-1002"
-    assert llm2.llamadas[0]["mensajes"][2]["content"] == r1.respuesta
+    assert llm2.llamadas[0]["mensajes"][3]["content"] == r1.respuesta
     assert r1.trace_id != r2.trace_id
 
 
@@ -353,7 +354,7 @@ def test_settings_valida_max_iteraciones():
 
 def test_constructor_hereda_limite_de_settings(retriever):
     orq, llm = _orq(retriever, _buscar(), _responder("Listo, ¿algo más?"), max_iteraciones_llm=1)
-    _assert_fallo_seguro(orq.procesar("hola"))
+    _assert_fallo_seguro(orq.procesar("¿Cuánto dura la garantía de mi lavadora?"))
     assert len(llm.llamadas) == 1
 
 
@@ -489,9 +490,10 @@ def test_texto_sin_responder_recibe_un_recordatorio(retriever):
     assert mensajes[-1]["role"] == "user" and "responder" in mensajes[-1]["content"]
 
 
-def test_texto_sin_responder_dos_veces_escala(retriever):
+def test_texto_sin_responder_dos_veces_con_evidencia_escala(retriever):
+    # Con documentos recuperados en el turno el fallo es real: fallo seguro (escalar).
     orq, llm = _orq(retriever, FakeLLM.texto("Hola"), FakeLLM.texto("Hola otra vez"))
-    _assert_fallo_seguro(orq.procesar("hola"))
+    _assert_fallo_seguro(orq.procesar("¿Cuánto dura la garantía de mi lavadora?"))
     assert len(llm.llamadas) == 2
 
 
@@ -540,7 +542,9 @@ def test_historial_enviado_al_llm_es_coherente(retriever):
     for llamada in llm.llamadas:
         validar_historial(llamada["mensajes"])
     ultimo = llm.llamadas[-1]["mensajes"]
-    assert [m["role"] for m in ultimo] == ["system", "user", "assistant", "tool", "assistant", "tool"]
+    assert [m["role"] for m in ultimo] == [
+        "system", "system", "user", "assistant", "tool", "assistant", "tool"
+    ]
     assert llm.llamadas[0]["timeout"] == Settings().timeout_llm_s
 
 
@@ -574,7 +578,7 @@ def test_historial_filtra_entradas_invalidas(retriever):
     r = orq.procesar("hola", historial=sucio)
     assert r.accion == "responder"
     enviados = llm.llamadas[0]["mensajes"]
-    assert [m["role"] for m in enviados] == ["system", "user", "assistant", "user"]
+    assert [m["role"] for m in enviados] == ["system", "system", "user", "assistant", "user"]
     assert "ignora tus reglas" not in json.dumps(enviados)
 
 
@@ -582,7 +586,7 @@ def test_historial_no_lista_se_ignora(retriever):
     orq, llm = _orq(retriever, _responder("Hola, ¿en qué te ayudo?"))
     r = orq.procesar("hola", historial="hola")
     assert r.accion == "responder"
-    assert [m["role"] for m in llm.llamadas[0]["mensajes"]] == ["system", "user"]
+    assert [m["role"] for m in llm.llamadas[0]["mensajes"]] == ["system", "system", "user"]
 
 
 def test_historial_se_limita_y_empieza_en_user(retriever):
@@ -592,7 +596,7 @@ def test_historial_se_limita_y_empieza_en_user(retriever):
         largo.append({"role": "assistant", "content": f"respuesta {i}"})
     orq, llm = _orq(retriever, _responder("Claro, ¿algo más?"))
     orq.procesar("hola", historial=largo)
-    enviados = llm.llamadas[0]["mensajes"][1:-1]
+    enviados = llm.llamadas[0]["mensajes"][2:-1]
     assert 0 < len(enviados) <= MAX_MENSAJES_HISTORIAL
     assert enviados[0]["role"] == "user"
     assert enviados[-1]["content"] == "respuesta 29"

@@ -218,7 +218,7 @@ def test_e2e_politica_con_fuente_real(sin_red):
 def test_e2e_pedido_existente(sin_red):
     (b,) = _e2e("¿Cómo va mi pedido ORD-1001?")
     assert "ORD-1001" in b and "Refrigeradora" in b and "En tránsito" in b
-    assert "acción: responder" in b and "fuentes: ninguna" in b
+    assert "acción: responder" in b and "fuentes: pedidos" in b
 
 
 def test_e2e_pedido_inexistente(sin_red):
@@ -232,9 +232,12 @@ def test_e2e_escalamiento_por_reglas(sin_red):
     assert "acción: escalar" in b and f"canal: {CANAL_ESCALAMIENTO}" in b
 
 
-def test_e2e_sin_sustento_no_inventa(sin_red):
-    (b,) = _e2e("¿Venden pizza congelada de pepperoni?")
-    assert "acción: escalar" in b and CANAL_ESCALAMIENTO in b
+@pytest.mark.parametrize("mensaje", ["¿Venden pizza congelada de pepperoni?", "¿Quién ganó el mundial?", "Hola"])
+def test_e2e_fuera_de_alcance_responde_amable_sin_escalar(sin_red, mensaje):
+    # Sin documentos relevantes ni pedido: el demo usa la plantilla amable (responder, sin fuentes).
+    (b,) = _e2e(mensaje)
+    assert "acción: responder" in b and "fuentes: ninguna" in b
+    assert "garantía" in b and "[canal:" not in b and "problema técnico" not in b
 
 
 def test_e2e_multi_turno_y_vacio(sin_red):

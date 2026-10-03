@@ -17,8 +17,14 @@ class LLMClient(Protocol):
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
         max_tokens: int | None = None,
+        tool_choice: str | None = None,
     ) -> LLMResponse:
-        """Envía mensajes (y definiciones de tools opcionales); devuelve texto y/o llamadas a tools."""
+        """Envía mensajes (y definiciones de tools opcionales); devuelve texto y/o llamadas a tools.
+
+        `tool_choice` es abstracto (cada adaptador lo traduce a su SDK): `None` = por defecto del
+        proveedor, `"auto"` = el modelo decide, `"any"` = el modelo DEBE llamar alguna tool.
+        Solo tiene efecto si se pasan `tools`.
+        """
         ...
 
 

@@ -259,3 +259,13 @@ def test_llamar_llm_seguro_propaga_max_tokens_opcional():
     llamar_llm_seguro(llm, MSGS, Settings())
     assert llm.llamadas[0]["max_tokens"] == 33
     assert llm.llamadas[1]["max_tokens"] is None
+
+
+def test_llamar_llm_seguro_pasa_tool_choice_solo_si_se_pide():
+    from tiendahogar_agent.resiliencia import llamar_llm_seguro
+
+    llm = FakeLLM([FakeLLM.texto("a"), FakeLLM.texto("b")])
+    llamar_llm_seguro(llm, [{"role": "user", "content": "x"}], Settings(), tool_choice="any")
+    llamar_llm_seguro(llm, [{"role": "user", "content": "x"}], Settings())
+    assert llm.llamadas[0]["tool_choice"] == "any"
+    assert llm.llamadas[1]["tool_choice"] is None

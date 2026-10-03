@@ -776,3 +776,32 @@ def test_verificar_salida_bloquea_promesa_de_notificacion():
         "Te enviaremos un email con el seguimiento.", "responder", [], [], None, "hola"
     )
     assert not r.ok and R_NOTIFICACION in r.reglas_fallidas
+
+
+# ---------------------------------------------------------------- fuente «pedidos»
+_PEDIDO_OK = {"order_id": "ORD-1001", "producto": "Refrigeradora", "estado": "En tránsito"}
+_PEDIDO_ERROR = {"order_id": "ORD-9999", "error": "no_encontrado", "mensaje": "No encontré ORD-9999."}
+_TEXTO_PEDIDO = "Tu pedido ORD-1001 está En tránsito."
+
+
+def test_fuente_pedidos_valida_con_consulta_exitosa():
+    for tool in (_PEDIDO_OK, {"pedidos": [_PEDIDO_OK]}, {"pedidos": [_PEDIDO_ERROR, _PEDIDO_OK]}):
+        r = _ver(_TEXTO_PEDIDO, fuentes=["pedidos"], tool=tool)
+        assert r.ok and r.fuentes == ["pedidos"], tool
+
+
+def test_fuente_pedidos_sin_consulta_falla():
+    for tool in (None, {}, {"pedidos": []}):
+        r = _ver("Tu pedido llegará pronto.", fuentes=["pedidos"], tool=tool)
+        assert not r.ok and "fuente_no_recuperada" in r.reglas_fallidas, tool
+
+
+def test_fuente_pedidos_con_error_de_la_tool_no_es_valida():
+    for tool in (_PEDIDO_ERROR, {"pedidos": [_PEDIDO_ERROR]}):
+        r = _ver("No encontré ese pedido.", fuentes=["pedidos"], tool=tool)
+        assert not r.ok and "fuente_no_recuperada" in r.reglas_fallidas, tool
+
+
+def test_pedidos_no_habilita_documentos_ajenos():
+    r = _ver(_TEXTO_PEDIDO, fuentes=["pedidos", "doc4"], tool=_PEDIDO_OK)
+    assert not r.ok and "fuente_no_recuperada" in r.reglas_fallidas

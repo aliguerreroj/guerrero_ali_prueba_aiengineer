@@ -6,11 +6,17 @@ Flujo de `Orquestador.procesar` (el sistema decide la acción; el LLM solo redac
 3. Si algo escala: el LLM redacta el mensaje SIN tools; se verifica (T10) y, si el LLM falla o
    no cumple (p. ej. omite el canal), se usa una plantilla de respaldo por categoría.
 4. Intención `fuera_de_alcance`: plantilla amable determinista (sin LLM, sin fuentes).
-5. Bucle de tool use (máx. `Settings.max_iteraciones_llm` llamadas al LLM) con `buscar_politicas`,
-   `consultar_estado_pedido` y `responder`. Cualquier fallo -> fallo seguro (escalar).
-6. Regla de acción: base `responder`; `accion_sugerida` del LLM solo se acepta si lleva hacia el
+5. RAG determinista: el retriever corre en CADA turno y los documentos recuperados se inyectan
+   como mensaje de contexto (ids = `doc_id`); no depende de que el LLM llame a `buscar_politicas`.
+6. Bucle de tool use (máx. `Settings.max_iteraciones_llm` llamadas al LLM) con `buscar_politicas`
+   (auxiliar), `consultar_estado_pedido` y `responder`, con `tool_choice="any"` (el modelo debe
+   llamar una tool). Falla real (LLM/retriever/tool/excepción) -> fallo seguro (escalar).
+   `MENSAJE_FUERA_DE_ALCANCE` (acción `responder`) solo si el LLM dio texto suelto tras el
+   recordatorio SIN haber intentado ninguna tool, sin documentos ni pedido en el turno y sin un
+   id de pedido en el mensaje. Iteraciones agotadas o tool-calls inválidos son una falla real.
+7. Regla de acción: base `responder`; `accion_sugerida` del LLM solo se acepta si lleva hacia el
    lado más seguro (responder < pedir_dato < escalar). Nunca anula una decisión del sistema.
-7. `verificar_salida` corre siempre antes de entregar; si no pasa, se escala con su respuesta.
+8. `verificar_salida` corre siempre antes de entregar; si no pasa, se escala con su respuesta.
 
 Decisiones:
 - PII: el LLM recibe el texto original del cliente y el historial tal cual (el enmascarado no
@@ -24,6 +30,9 @@ Decisiones:
 - Borde externo: toda excepción inesperada (también un bug de programación o un
   `ErrorHistorialMensajes`) se registra con traceback enmascarado y escala: de cara al cliente
   el fallo seguro tiene prioridad (a diferencia del clasificador, que propaga los bugs).
+- Evidencia del turno: `verificar_salida` valida contra los chunks recuperados EN ESTE TURNO (el
+  retriever automático más los de `buscar_politicas`, sin duplicar) y los pedidos consultados; la
+  fuente «pedidos» solo es válida si la tool devolvió un pedido real.
 - Ids de fuentes: `buscar_politicas` presenta cada fragmento con `id` igual a su `doc_id`, de modo
   que lo que cita el LLM coincide con lo que valida `verificar_salida`.
 - `timeout_tool_s` no se aplica: ambas tools son síncronas y locales.
@@ -33,6 +42,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -80,6 +90,7 @@ logger = logging.getLogger(__name__)
 MAX_MENSAJES_HISTORIAL = 20
 _MAX_CARACTERES_LOG = 200
 _ROLES_HISTORIAL = ("user", "assistant")
+_PATRON_PEDIDO = re.compile(r"ord\s*-?\s*\d", re.IGNORECASE)
 
 MENSAJE_PEDIR_DATO = (
     "Hola, con gusto te ayudo. Cuéntame qué necesitas: puedo resolver dudas sobre garantía, "
@@ -123,6 +134,9 @@ PLANTILLAS_ESCALAMIENTO = {
 _RECORDATORIO = (
     "Recuerda entregar tu respuesta final al cliente con la herramienta `responder`."
 )
+
+# Obliga al modelo a llamar siempre una tool (si no, a veces responde con texto suelto).
+TOOL_CHOICE_BUCLE = "any"
 
 _ORDEN_SEGURIDAD = {"responder": 0, "pedir_dato": 1, "escalar": 2}
 _CAMPOS_RESPONDER = {"respuesta", "fuentes", "accion_sugerida"}
@@ -285,10 +299,26 @@ class Orquestador:
             {"role": "user", "content": mensaje},
         ]
         evidencia = _Evidencia()
+        encontrados = recuperar_seguro(self._retriever, mensaje, trace_id)
+        if isinstance(encontrados, RespuestaFalloSeguro):
+            return encontrados.respuesta
+        evidencia.agregar_chunks([r.chunk for r in encontrados])
+        logger.info("rag por turno trace_id=%s fragmentos=%d", trace_id, len(encontrados))
+        mensajes.insert(
+            1,
+            {
+                "role": "system",
+                "content": construir_contexto_documentos(
+                    encontrados, ids=[r.fuente.doc_id for r in encontrados]
+                ),
+            },
+        )
         recordado = False
+        intento_tools = False
         for _ in range(self._settings.max_iteraciones_llm):
             respuesta = llamar_llm_seguro(
-                self._llm, mensajes, self._settings, tools=self._tools, trace_id=trace_id
+                self._llm, mensajes, self._settings, tools=self._tools, trace_id=trace_id,
+                tool_choice=TOOL_CHOICE_BUCLE,
             )
             if isinstance(respuesta, RespuestaFalloSeguro):
                 return respuesta.respuesta
@@ -297,9 +327,9 @@ class Orquestador:
             llamadas = respuesta.llamadas_tools
             if not llamadas:
                 if recordado:
-                    return fallar(
-                        "bucle_sin_respuesta", trace_id, detalle="texto sin usar responder"
-                    ).respuesta
+                    return self._texto_suelto(
+                        mensaje, evidencia, intento_tools, trace_id
+                    )
                 recordado = True
                 mensajes.append({"role": "user", "content": _RECORDATORIO})
                 continue
@@ -310,6 +340,7 @@ class Orquestador:
                 ).respuesta
             if finales and _error_argumentos_responder(finales[0].argumentos) is None:
                 return self._entregar(finales[0].argumentos, evidencia, usuario, trace_id)
+            intento_tools = True
             for llamada in llamadas:
                 resultado = self._ejecutar(llamada, evidencia, trace_id)
                 if isinstance(resultado, AgentResponse):
@@ -318,6 +349,28 @@ class Orquestador:
         return fallar(
             "bucle_sin_respuesta", trace_id, detalle="iteraciones agotadas sin responder"
         ).respuesta
+
+    @staticmethod
+    def _texto_suelto(
+        mensaje: str, evidencia: _Evidencia, intento_tools: bool, trace_id: str
+    ) -> AgentResponse:
+        """El LLM insistió en texto suelto tras el recordatorio.
+
+        Solo es un tema ajeno (plantilla amable, `responder`) si no intentó ninguna tool, no hubo
+        documentos ni pedido en el turno y el mensaje no menciona un pedido. En cualquier otro
+        caso es una falla real: fallo seguro.
+        """
+        if (
+            not intento_tools
+            and not evidencia.chunks
+            and not evidencia.pedidos
+            and not _PATRON_PEDIDO.search(mensaje)
+        ):
+            logger.warning("texto suelto sin evidencia: fuera de alcance trace_id=%s", trace_id)
+            return AgentResponse(
+                respuesta=MENSAJE_FUERA_DE_ALCANCE, accion="responder", trace_id=trace_id
+            )
+        return fallar("bucle_sin_respuesta", trace_id, detalle="texto sin usar responder").respuesta
 
     def _ejecutar(
         self, llamada: LlamadaTool, evidencia: _Evidencia, trace_id: str

@@ -216,7 +216,7 @@
       "id": "T12",
       "fase": 3,
       "titulo": "Adaptadores LLM",
-      "estado": "en_progreso",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T03",
@@ -229,8 +229,8 @@
         "El proveedor se elige por configuración"
       ],
       "verificacion": "python -m pytest tests/test_llm_adapters.py -q",
-      "revisado_por_revisor": false,
-      "notas": "Revisor APROBADO. MENOR: anthropic/openai son dependencias obligatorias (podrian ser extras) y httpx no esta declarado; raise from conserva el mensaje original del SDK en __cause__ (mitigado por el enmascarado de T11); los adaptadores no traducen mensajes de resultado de tool (formato a definir en T14); api_version sin comillas en YAML falla con ValidationError sin test. Reabierta (sesión 08, fix tras prueba en vivo)."
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO. MENOR: anthropic/openai son dependencias obligatorias (podrian ser extras) y httpx no esta declarado; raise from conserva el mensaje original del SDK en __cause__ (mitigado por el enmascarado de T11); los adaptadores no traducen mensajes de resultado de tool (formato a definir en T14); api_version sin comillas en YAML falla con ValidationError sin test. Reabierta (sesión 08, fix tras prueba en vivo). Sesión 08 grupo 2: Revisor APROBADO (2.ª vez; 1.º rechazo: el fuera de alcance enmascaraba fallas reales). RAG por turno, tool_choice, fuente «pedidos», ADR-007. MENOR: _PATRON_PEDIDO no cubre «pedido 1001» sin prefijo ORD (solo si el LLM ignora tool_choice dos veces); T10 solo comprueba que la cifra esté en el doc citado (12 meses de doc1 pasa; la corrección a 6 depende del prompt); consulta del retriever = solo el mensaje actual."
     },
     {
       "id": "T13",
@@ -256,7 +256,7 @@
       "id": "T14",
       "fase": 3,
       "titulo": "Orquestador con tool use (buscar_politicas, consultar_estado_pedido, responder)",
-      "estado": "en_progreso",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T04",
@@ -277,8 +277,8 @@
         "Límite máximo de iteraciones del bucle, configurable"
       ],
       "verificacion": "python -m pytest tests/test_orchestrator.py -q",
-      "revisado_por_revisor": false,
-      "notas": "Revisor APROBADO a la primera. MENOR: (1) las cifras dichas por el cliente en el historial o en el mensaje cuentan como sustento en T10 (cifra sembrada, limitacion a documentar); (2) reglas y clasificador solo evaluan el mensaje actual, no el historial; (3) cedulas, nombres y direcciones no se enmascaran en logs (limite de T09); (4) ids de tool duplicados solo los detecta FakeLLM; (5) cambios colaterales en resiliencia, mensajes, dobles y adaptador Anthropic; (6) historial que termina en user produce dos user seguidos sin test. Reabierta (sesión 08, fix tras prueba en vivo)."
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. MENOR: (1) las cifras dichas por el cliente en el historial o en el mensaje cuentan como sustento en T10 (cifra sembrada, limitacion a documentar); (2) reglas y clasificador solo evaluan el mensaje actual, no el historial; (3) cedulas, nombres y direcciones no se enmascaran en logs (limite de T09); (4) ids de tool duplicados solo los detecta FakeLLM; (5) cambios colaterales en resiliencia, mensajes, dobles y adaptador Anthropic; (6) historial que termina en user produce dos user seguidos sin test. Reabierta (sesión 08, fix tras prueba en vivo). Sesión 08 grupo 2: Revisor APROBADO (2.ª vez; 1.º rechazo: el fuera de alcance enmascaraba fallas reales). RAG por turno, tool_choice, fuente «pedidos», ADR-007. MENOR: _PATRON_PEDIDO no cubre «pedido 1001» sin prefijo ORD (solo si el LLM ignora tool_choice dos veces); T10 solo comprueba que la cifra esté en el doc citado (12 meses de doc1 pasa; la corrección a 6 depende del prompt); consulta del retriever = solo el mensaje actual."
     },
     {
       "id": "T15",

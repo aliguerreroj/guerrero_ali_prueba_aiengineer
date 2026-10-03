@@ -200,3 +200,18 @@ def test_fake_llm_registra_max_tokens():
     llm.completar([{"role": "user", "content": "x"}])
     assert llm.llamadas[0]["max_tokens"] == 40
     assert llm.llamadas[1]["max_tokens"] is None
+
+
+def test_fake_llm_registra_tool_choice_y_es_retrocompatible():
+    llm = FakeLLM([FakeLLM.texto("a"), FakeLLM.texto("b")])
+    llm.completar([{"role": "user", "content": "x"}], tools=[{"name": "t"}], tool_choice="any")
+    llm.completar([{"role": "user", "content": "x"}])
+    assert llm.llamadas[0]["tool_choice"] == "any"
+    assert llm.llamadas[1]["tool_choice"] is None
+
+
+def test_llm_demo_acepta_tool_choice():
+    from tiendahogar_agent.llm_demo import LLMDemo
+
+    r = LLMDemo().completar([{"role": "user", "content": "ORD-1001"}], tools=[], tool_choice="any")
+    assert r.llamadas_tools[0].nombre == "consultar_estado_pedido"

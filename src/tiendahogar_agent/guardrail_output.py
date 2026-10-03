@@ -6,7 +6,9 @@ por una respuesta segura y se escala a un humano (fallo seguro = escalar).
 Reglas (identificadores estables en `reglas_fallidas`):
 - `cifra_sin_sustento`: toda cifra de la respuesta (dígitos o letras) debe aparecer
   en los chunks recuperados, en el resultado de la tool o en el mensaje del usuario.
-- `fuente_no_recuperada`: las fuentes citadas deben ser doc_id de los chunks recuperados.
+- `fuente_no_recuperada`: las fuentes citadas deben ser doc_id de los chunks recuperados; la
+  fuente especial «pedidos» solo vale si `resultado_tool` trae un pedido consultado con éxito
+  (ni un error de la tool ni la ausencia de llamada la sustentan).
 - `compromiso_reembolso_aprobado`, `compromiso_garantia_resultado`,
   `compromiso_excepcion`: compromisos que el agente no puede asumir.
 - `falta_canal_escalamiento`: si la acción es escalar, la respuesta nombra el canal.
@@ -81,6 +83,9 @@ RESPUESTA_SEGURA = (
 )
 
 _ACCIONES = ("responder", "escalar", "pedir_dato")
+
+# Fuente que se cita al usar la tool de pedidos (no es un doc_id).
+FUENTE_PEDIDOS = "pedidos"
 
 R_CIFRA = "cifra_sin_sustento"
 R_FUENTE = "fuente_no_recuperada"
@@ -304,6 +309,18 @@ def _aplanar(valor: Any, partes: list[str], profundidad: int = 0) -> None:
         partes.append(str(valor))
 
 
+def _hay_pedido_valido(resultado_tool: Any) -> bool:
+    """True si hubo una consulta de pedido exitosa (sin clave `error`).
+
+    Acepta el dict de un pedido o `{"pedidos": [dict, ...]}` (varias consultas en el turno).
+    """
+    if not isinstance(resultado_tool, dict) or not resultado_tool:
+        return False
+    if isinstance(resultado_tool.get("pedidos"), list):
+        return any(isinstance(p, dict) and p and "error" not in p for p in resultado_tool["pedidos"])
+    return "error" not in resultado_tool
+
+
 def _texto_de(valor: Any) -> str:
     return valor if isinstance(valor, str) else ""
 
@@ -399,6 +416,8 @@ def _verificar(
         detalles.extend(det_cifras)
 
     recuperados = {c.doc_id for c in lista_chunks}
+    if _hay_pedido_valido(resultado_tool):
+        recuperados.add(FUENTE_PEDIDOS)
     ajenas = [f for f in dict.fromkeys(fuentes_ok) if f not in recuperados]
     if ajenas:
         reglas.append(R_FUENTE)

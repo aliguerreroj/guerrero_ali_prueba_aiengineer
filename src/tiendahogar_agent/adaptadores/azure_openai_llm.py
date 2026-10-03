@@ -27,6 +27,16 @@ def _traducir_tool(tool: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_TOOL_CHOICE = {"auto": "auto", "any": "required"}
+
+
+def _traducir_tool_choice(valor: str) -> str:
+    """Valor abstracto del puerto (`auto`/`any`) -> `tool_choice` de chat.completions."""
+    if valor not in _TOOL_CHOICE:
+        raise ValueError(f"tool_choice no soportado: {valor!r} (use 'auto' o 'any')")
+    return _TOOL_CHOICE[valor]
+
+
 def _traducir_mensajes(mensajes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Mensajes de dominio -> chat.completions.
 
@@ -89,6 +99,7 @@ class AzureOpenAILLM:
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
         max_tokens: int | None = None,
+        tool_choice: str | None = None,
     ) -> LLMResponse:
         validar_historial(mensajes)
         parametros: dict[str, Any] = {
@@ -98,6 +109,8 @@ class AzureOpenAILLM:
         }
         if tools:
             parametros["tools"] = [_traducir_tool(t) for t in tools]
+            if tool_choice is not None:
+                parametros["tool_choice"] = _traducir_tool_choice(tool_choice)
         if timeout is not None:
             parametros["timeout"] = timeout
         try:
