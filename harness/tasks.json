@@ -161,7 +161,7 @@
       "id": "T09",
       "fase": 2,
       "titulo": "Enmascarado de PII",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T02"
@@ -173,8 +173,8 @@
         "No enmascara montos de dinero"
       ],
       "verificacion": "python -m pytest tests/test_pii.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTES: móvil con indicativo entre paréntesis y tarjetas Luhn con último grupo corto, corregidos) y luego APROBADO. MENOR: NFKC altera texto no PII del texto devuelto (½, …, ™, ligaduras, NBSP); teléfonos no colombianos sin '+' ni 00, saltos de línea como separador, dígitos sueltos y correos sin TLD no se enmascaran (decisión de diseño); '3000000000 pesos' se enmascara como teléfono; id pegado a tarjeta sin separador se altera; docstring con redacción poco clara sobre grupos de 4 a 6 y último grupo corto."
     },
     {
       "id": "T10",
