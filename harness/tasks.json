@@ -301,7 +301,7 @@
       "id": "T16",
       "fase": 3,
       "titulo": "CLI de chat",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T14"
@@ -312,8 +312,8 @@
         "Muestra fuentes y acción"
       ],
       "verificacion": "python -m pytest tests/test_cli.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. MENOR: llm_demo._PEDIDO sin limite de digitos (ORD-10011 se lee como ORD-1001); con varios ORD solo consulta el primero; con clave anthropic invalida resiliencia imprime un traceback en stderr; el demo pega el titulo del documento. HALLAZGO EN T08 (fuera de alcance): frases como 'quiero poner una queja del trato de un empleado' no escalan por reglas; pendiente de decision del humano."
     },
     {
       "id": "T17",

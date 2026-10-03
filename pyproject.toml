@@ -17,6 +17,9 @@ dependencies = [
     "openai>=1.50",
 ]
 
+[project.scripts]
+tiendahogar-chat = "tiendahogar_agent.cli:principal"
+
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
 
