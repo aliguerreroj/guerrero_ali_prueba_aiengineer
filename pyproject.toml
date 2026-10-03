@@ -34,3 +34,6 @@ markers = ["integration: usa servicios reales (modelo de embeddings o API del LL
 [tool.ruff]
 line-length = 100
 extend-exclude = ["harness/context"]
+
+[tool.setuptools.package-data]
+tiendahogar_agent = ["plantillas/*.md"]

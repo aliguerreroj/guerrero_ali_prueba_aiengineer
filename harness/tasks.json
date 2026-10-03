@@ -236,7 +236,7 @@
       "id": "T13",
       "fase": 3,
       "titulo": "Prompts y guía de tono",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T01"
@@ -249,8 +249,8 @@
         "Pedir con amabilidad los datos faltantes (id de pedido, fecha de compra)"
       ],
       "verificacion": "python -m pytest tests/test_prompts.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO. MENOR: los tests de reglas comprueban texto del prompt, no comportamiento del modelo (evals en T18/T19); fuente del atributo no se valida contra los doc_id conocidos; el escape convierte & en &amp; y deforma levemente el texto citado."
     },
     {
       "id": "T14",
