@@ -118,7 +118,7 @@
       "id": "T07",
       "fase": 1,
       "titulo": "Retriever con top_k y umbral",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T06"
@@ -132,8 +132,8 @@
         "Resultados ordenados por score y con la fuente"
       ],
       "verificacion": "python -m pytest tests/test_retriever.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: APROBADO (1.ª vez), sin BLOQUEANTES. Regla de relevancia sobre puntajes originales en ADR-004; umbrales provisionales hasta T19: umbral_bm25=0.5, umbral_semantico=0.3 (reemplazan a umbral_recuperacion). MENOR: (1) ADR-004 omitía un espurio BM25 de 1.038 (corregido en el ADR); (2) umbral semántico apoyado en una sola consulta fuera de dominio (ampliar en T19); (3) chunks identificados por id(): documentar el contrato o indexar por posición si hay otro VectorStore; (4) faltan tests del límite > vs >= y del warning en fallo del embedder en consulta; el test de relevancia por puntajes originales es débil; (5) top_k público y mutable salta la validación; (6) construir_retriever usa InMemoryVectorStore de dobles.py."
     },
     {
       "id": "T08",

@@ -19,7 +19,8 @@ def test_defaults_del_yaml_del_repo():
     assert s.umbral_reembolso == 500
     assert s.top_k == 3
     assert s.llm_model == "claude-haiku-4-5-20251001"
-    assert 0 <= s.umbral_recuperacion <= 1
+    assert s.umbral_bm25 >= 0
+    assert -1 <= s.umbral_semantico <= 1
     assert s.timeout_llm_s > 0 and s.timeout_tool_s > 0
 
 
@@ -68,3 +69,13 @@ def test_chunking_valores_invalidos():
         Settings(chunk_strategy="magica")
     with pytest.raises(ValidationError):
         Settings(chunk_tamano=10, chunk_solape=10)
+
+
+def test_recuperacion_valores_invalidos():
+    with pytest.raises(ValidationError):
+        Settings(umbral_bm25=-0.1)
+    with pytest.raises(ValidationError):
+        Settings(umbral_semantico=1.5)
+    with pytest.raises(ValidationError):
+        Settings(top_k=0)
+    assert Settings(umbral_bm25=2, umbral_semantico=0.1).umbral_bm25 == 2

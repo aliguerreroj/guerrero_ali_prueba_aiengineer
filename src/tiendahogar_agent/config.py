@@ -10,6 +10,7 @@ import yaml
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
+MODELO_EMBEDDING_POR_DEFECTO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 RUTA_YAML_POR_DEFECTO = Path(__file__).resolve().parents[2] / "settings.yaml"
 
 
@@ -42,7 +43,9 @@ class Settings(BaseSettings):
     llm_provider: Literal["fake", "anthropic"] = "fake"
     llm_model: str = "claude-haiku-4-5-20251001"
     top_k: int = 3
-    umbral_recuperacion: float = 0.3
+    # Relevancia (T07): se aplica sobre los puntajes ORIGINALES, no sobre el RRF. PROVISIONALES (T19).
+    umbral_bm25: float = 0.5
+    umbral_semantico: float = 0.3
     umbral_reembolso: float = 500
     timeout_llm_s: float = 30
     timeout_tool_s: float = 5
@@ -53,12 +56,22 @@ class Settings(BaseSettings):
     chunk_tamano: int = 500
     chunk_solape: int = 50
     # Embeddings (T06)
-    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_model: str = MODELO_EMBEDDING_POR_DEFECTO
 
     @model_validator(mode="after")
     def _validar_embedding(self) -> Settings:
         if not self.embedding_model.strip():
             raise ValueError("embedding_model no puede estar vacío")
+        return self
+
+    @model_validator(mode="after")
+    def _validar_recuperacion(self) -> Settings:
+        if self.top_k < 1:
+            raise ValueError("top_k debe ser >= 1")
+        if self.umbral_bm25 < 0:
+            raise ValueError("umbral_bm25 debe ser >= 0 (un BM25 <= 0 nunca es relevante)")
+        if not -1.0 <= self.umbral_semantico <= 1.0:
+            raise ValueError("umbral_semantico debe estar entre -1 y 1 (similitud coseno)")
         return self
 
     @model_validator(mode="after")

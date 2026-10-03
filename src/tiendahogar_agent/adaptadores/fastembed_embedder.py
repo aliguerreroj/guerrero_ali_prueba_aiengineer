@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-MODELO_POR_DEFECTO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+from tiendahogar_agent.config import MODELO_EMBEDDING_POR_DEFECTO as MODELO_POR_DEFECTO
 
 
 class FastEmbedEmbedder:

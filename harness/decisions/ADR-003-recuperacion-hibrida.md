@@ -21,3 +21,6 @@ Recuperación híbrida:
 ## Consecuencias
 - Tests rápidos y deterministas; el comportamiento semántico real se valida aparte.
 - Dos índices que mantener y un parámetro más de calibración (umbral tras la fusión).
+
+## Nota posterior
+La regla de relevancia y los umbrales (en lugar de un umbral sobre el score fusionado) quedaron precisados en ADR-004.

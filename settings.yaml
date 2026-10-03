@@ -3,8 +3,10 @@
 llm_provider: fake
 llm_model: claude-haiku-4-5-20251001
 top_k: 3
-# PROVISIONAL: se calibra con datos reales en T19.
-umbral_recuperacion: 0.3
+# Relevancia sobre puntajes ORIGINALES (no sobre RRF): chunk relevante si BM25 > umbral_bm25
+# O coseno > umbral_semantico. Ambos son PROVISIONALES hasta T19 (ver ADR-004).
+umbral_bm25: 0.5
+umbral_semantico: 0.3
 umbral_reembolso: 500
 timeout_llm_s: 30
 timeout_tool_s: 5
