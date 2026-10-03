@@ -10,6 +10,8 @@ umbral_semantico: 0.3
 umbral_reembolso: 500
 timeout_llm_s: 30
 timeout_tool_s: 5
+# Reintentos del cliente LLM (los hace el SDK con su backoff; T12 los pasa como max_retries). 0-5.
+max_reintentos_llm: 2
 # Chunking: none | fixed | recursive | auto (auto = none si el documento es corto).
 chunk_strategy: auto
 # Umbral de documento corto en caracteres (los 5 docs actuales miden ~200-330).

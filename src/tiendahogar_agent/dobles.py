@@ -9,10 +9,10 @@ from tiendahogar_agent.models import Chunk, LlamadaTool, LLMResponse, UsoTokens
 
 
 class FakeLLM:
-    """LLM guionizado: devuelve LLMResponse en orden y registra las llamadas."""
+    """LLM guionizado: devuelve LLMResponse en orden (o lanza la excepción encolada)."""
 
-    def __init__(self, respuestas: list[LLMResponse] | None = None) -> None:
-        self._cola: list[LLMResponse] = list(respuestas or [])
+    def __init__(self, respuestas: list[LLMResponse | BaseException] | None = None) -> None:
+        self._cola: list[LLMResponse | BaseException] = list(respuestas or [])
         self.llamadas: list[dict[str, Any]] = []
 
     @staticmethod
@@ -38,8 +38,20 @@ class FakeLLM:
             uso=UsoTokens(entrada=tokens_entrada, salida=tokens_salida),
         )
 
+    @staticmethod
+    def vacia() -> LLMResponse:
+        """Helper: respuesta sin texto ni llamadas a tools."""
+        return LLMResponse(texto=None)
+
     def encolar(self, respuesta: LLMResponse) -> None:
         self._cola.append(respuesta)
+
+    def encolar_error(self, error: BaseException) -> None:
+        """Encola una excepción que se lanzará en la siguiente llamada."""
+        self._cola.append(error)
+
+    def encolar_vacia(self) -> None:
+        self._cola.append(self.vacia())
 
     def completar(
         self,
@@ -50,7 +62,10 @@ class FakeLLM:
         self.llamadas.append({"mensajes": mensajes, "tools": tools, "timeout": timeout})
         if not self._cola:
             raise RuntimeError("FakeLLM: no quedan respuestas guionizadas")
-        return self._cola.pop(0)
+        siguiente = self._cola.pop(0)
+        if isinstance(siguiente, BaseException):
+            raise siguiente
+        return siguiente
 
 
 class FakeEmbedder:

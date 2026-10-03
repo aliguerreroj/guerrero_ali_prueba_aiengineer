@@ -47,8 +47,11 @@ class Settings(BaseSettings):
     umbral_bm25: float = 0.5
     umbral_semantico: float = 0.3
     umbral_reembolso: float = 500
+    # Resiliencia (T11). T12 pasa timeout_llm_s y max_reintentos_llm al SDK (timeout y
+    # max_retries del cliente); los reintentos con backoff los hace el SDK, no el dominio.
     timeout_llm_s: float = 30
     timeout_tool_s: float = 5
+    max_reintentos_llm: int = 2
     anthropic_api_key: SecretStr | None = None
     # Chunking de documentos (T05)
     chunk_strategy: Literal["none", "fixed", "recursive", "auto"] = "auto"
@@ -72,6 +75,16 @@ class Settings(BaseSettings):
             raise ValueError("umbral_bm25 debe ser >= 0 (un BM25 <= 0 nunca es relevante)")
         if not -1.0 <= self.umbral_semantico <= 1.0:
             raise ValueError("umbral_semantico debe estar entre -1 y 1 (similitud coseno)")
+        return self
+
+    @model_validator(mode="after")
+    def _validar_resiliencia(self) -> Settings:
+        if not 0 < self.timeout_llm_s <= 120:
+            raise ValueError("timeout_llm_s debe estar en (0, 120] segundos")
+        if not 0 < self.timeout_tool_s <= 60:
+            raise ValueError("timeout_tool_s debe estar en (0, 60] segundos")
+        if not 0 <= self.max_reintentos_llm <= 5:
+            raise ValueError("max_reintentos_llm debe estar entre 0 y 5")
         return self
 
     @model_validator(mode="after")

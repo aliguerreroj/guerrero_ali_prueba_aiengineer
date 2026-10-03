@@ -198,7 +198,7 @@
       "id": "T11",
       "fase": 2,
       "titulo": "Resiliencia",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T03"
@@ -209,8 +209,8 @@
         "Los errores se registran sin filtrar PII"
       ],
       "verificacion": "python -m pytest tests/test_resilience.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: APROBADO a la primera. Sin bucle de reintentos propio (max_reintentos_llm y timeout_llm_s los pasa T12 al SDK); excepciones de dominio ErrorLLM y subclases como contrato para T12. Ver ADR-006. MENOR: (1) recuperar_seguro captura ValueError/KeyError/IndexError, demasiado amplio: un bug de logica del retriever se vuelve escalamiento silencioso y el log no trae traceback; preferible capturar solo ErrorRecuperacion y que el retriever traduzca sus fallos de datos; (2) trace_id no se enmascara en el log ni en la respuesta (T14 debe generarlo como uuid); (3) una respuesta solo con caracteres invisibles (U+200B, U+FEFF, U+2060) no cuenta como vacia; (4) revisar_resultado_tool trata como usable un resultado no-dict o 'Error_Interno' con otra capitalizacion (falla abierto; la tool real solo emite error_interno exacto); (5) faltan tests de esos casos y de NaN/inf/string en Settings. Heredado: el retriever, pedidos.py y guardrail_output.py conservan sus except Exception anteriores; el enmascarador de T09 lee telefono y tarjeta pegados como un solo telefono."
     },
     {
       "id": "T12",
