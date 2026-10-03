@@ -139,7 +139,7 @@
       "id": "T08",
       "fase": 2,
       "titulo": "Guardrail de entrada determinista",
-      "estado": "hecha",
+      "estado": "en_progreso",
       "prioridad": "obligatoria",
       "depende_de": [
         "T02"
@@ -154,8 +154,8 @@
         "Precedencia: si el mensaje mezcla un tema escalable con otro que no lo es, se escala"
       ],
       "verificacion": "python -m pytest tests/test_guardrail_input.py -q",
-      "revisado_por_revisor": true,
-      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTE: falsos negativos legales con clíticos, corregido) y luego APROBADO. MENOR: test_montos_variantes_extra_falsos_positivos tiene un caso que sí escala (usa un if; mover al test positivo y renombrar); limitaciones documentadas: 'reembolso de 2024' se lee como monto, '$0.800', 'legal' suelto y 'denuncia de robo' escalan (fallo seguro); sin cubrir: 'necesito reembolso: 600' (sin moneda), '$5e3'. Ventanas de 60 caracteres entre empleado y adjetivo. Precedencia: legal > manipulacion > facturacion > queja_trato > reembolso_alto."
+      "revisado_por_revisor": false,
+      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTE: falsos negativos legales con clíticos, corregido) y luego APROBADO. MENOR: test_montos_variantes_extra_falsos_positivos tiene un caso que sí escala (usa un if; mover al test positivo y renombrar); limitaciones documentadas: 'reembolso de 2024' se lee como monto, '$0.800', 'legal' suelto y 'denuncia de robo' escalan (fallo seguro); sin cubrir: 'necesito reembolso: 600' (sin moneda), '$5e3'. Ventanas de 60 caracteres entre empleado y adjetivo. Precedencia: legal > manipulacion > facturacion > queja_trato > reembolso_alto. Reabierta (sesión 08, fix tras prueba en vivo)."
     },
     {
       "id": "T09",
@@ -192,7 +192,7 @@
       ],
       "verificacion": "python -m pytest tests/test_guardrail_output.py -q",
       "revisado_por_revisor": true,
-      "notas": "Revisor: RECHAZADO 3 veces con el criterio por frase (bypass de compromisos lexicos); el humano autorizo opcion B con metrica (deteccion >=90%, falsos positivos <=5% sobre tests/data/compromisos_eval.json) y luego APROBADO. Metrica conjunto fijo (108 frases): antes 25/51 (49,0%) y 6/57 FP (10,5%); despues 51/51 (100%) y 0/57 (0%). Optimista: el detector se ajusto conociendo 54 de las 108 frases. Medicion independiente del revisor: deteccion 42/47 (89,4%), FP 0/51; escapes: enviar/transferir el dinero, 'esta en proceso', gerundio con enclitico. Ver ADR-005 (limitaciones para SUBMISSION). MENOR: conjunto fijo con sesgo de ajuste (ampliar en T19); el test de metrica no detecta regresion parcial de ~5 compromisos (por familia o umbral interno mas exigente); falsos positivos aceptados: 'hacemos/damos el reembolso' y 'te abonamos' aunque describan politica, 'te lo damos' siempre bloquea; except Exception final de verificar_salida (registra solo el nombre de la excepcion); condicionales con compromiso se bloquean."
+      "notas": "Revisor: RECHAZADO 3 veces con el criterio por frase (bypass de compromisos lexicos); el humano autorizo opcion B con metrica (deteccion >=90%, falsos positivos <=5% sobre tests/data/compromisos_eval.json) y luego APROBADO. Metrica conjunto fijo (108 frases): antes 25/51 (49,0%) y 6/57 FP (10,5%); despues 51/51 (100%) y 0/57 (0%). Optimista: el detector se ajusto conociendo 54 de las 108 frases. Medicion independiente del revisor: deteccion 42/47 (89,4%), FP 0/51; escapes: enviar/transferir el dinero, 'esta en proceso', gerundio con enclitico. Ver ADR-005 (limitaciones para SUBMISSION). MENOR: conjunto fijo con sesgo de ajuste (ampliar en T19); el test de metrica no detecta regresion parcial de ~5 compromisos (por familia o umbral interno mas exigente); falsos positivos aceptados: 'hacemos/damos el reembolso' y 'te abonamos' aunque describan politica, 'te lo damos' siempre bloquea; except Exception final de verificar_salida (registra solo el nombre de la excepcion); condicionales con compromiso se bloquean. Reabierta (sesión 08, fix tras prueba en vivo). Sesión 08 grupo 1: Revisor APROBADO (2.ª vez; 1.º rechazo por lookbehind que eximía promesas tras negación). Familia promesa_notificacion; set fijo 139 frases: detección 69/69, FP 0/70. MENOR: filtro de voseo exime líneas con «→»; tercera persona («te contactará») y «revisa tu correo…» solo cubiertos por el prompt."
     },
     {
       "id": "T11",
@@ -216,7 +216,7 @@
       "id": "T12",
       "fase": 3,
       "titulo": "Adaptadores LLM",
-      "estado": "hecha",
+      "estado": "en_progreso",
       "prioridad": "obligatoria",
       "depende_de": [
         "T03",
@@ -229,8 +229,8 @@
         "El proveedor se elige por configuración"
       ],
       "verificacion": "python -m pytest tests/test_llm_adapters.py -q",
-      "revisado_por_revisor": true,
-      "notas": "Revisor APROBADO. MENOR: anthropic/openai son dependencias obligatorias (podrian ser extras) y httpx no esta declarado; raise from conserva el mensaje original del SDK en __cause__ (mitigado por el enmascarado de T11); los adaptadores no traducen mensajes de resultado de tool (formato a definir en T14); api_version sin comillas en YAML falla con ValidationError sin test."
+      "revisado_por_revisor": false,
+      "notas": "Revisor APROBADO. MENOR: anthropic/openai son dependencias obligatorias (podrian ser extras) y httpx no esta declarado; raise from conserva el mensaje original del SDK en __cause__ (mitigado por el enmascarado de T11); los adaptadores no traducen mensajes de resultado de tool (formato a definir en T14); api_version sin comillas en YAML falla con ValidationError sin test. Reabierta (sesión 08, fix tras prueba en vivo)."
     },
     {
       "id": "T13",
@@ -250,13 +250,13 @@
       ],
       "verificacion": "python -m pytest tests/test_prompts.py -q",
       "revisado_por_revisor": true,
-      "notas": "Revisor APROBADO. MENOR: los tests de reglas comprueban texto del prompt, no comportamiento del modelo (evals en T18/T19); fuente del atributo no se valida contra los doc_id conocidos; el escape convierte & en &amp; y deforma levemente el texto citado."
+      "notas": "Revisor APROBADO. MENOR: los tests de reglas comprueban texto del prompt, no comportamiento del modelo (evals en T18/T19); fuente del atributo no se valida contra los doc_id conocidos; el escape convierte & en &amp; y deforma levemente el texto citado. Reabierta (sesión 08, fix tras prueba en vivo). Sesión 08 grupo 1: Revisor APROBADO (2.ª vez; 1.º rechazo por lookbehind que eximía promesas tras negación). Familia promesa_notificacion; set fijo 139 frases: detección 69/69, FP 0/70. MENOR: filtro de voseo exime líneas con «→»; tercera persona («te contactará») y «revisa tu correo…» solo cubiertos por el prompt."
     },
     {
       "id": "T14",
       "fase": 3,
       "titulo": "Orquestador con tool use (buscar_politicas, consultar_estado_pedido, responder)",
-      "estado": "hecha",
+      "estado": "en_progreso",
       "prioridad": "obligatoria",
       "depende_de": [
         "T04",
@@ -277,8 +277,8 @@
         "Límite máximo de iteraciones del bucle, configurable"
       ],
       "verificacion": "python -m pytest tests/test_orchestrator.py -q",
-      "revisado_por_revisor": true,
-      "notas": "Revisor APROBADO a la primera. MENOR: (1) las cifras dichas por el cliente en el historial o en el mensaje cuentan como sustento en T10 (cifra sembrada, limitacion a documentar); (2) reglas y clasificador solo evaluan el mensaje actual, no el historial; (3) cedulas, nombres y direcciones no se enmascaran en logs (limite de T09); (4) ids de tool duplicados solo los detecta FakeLLM; (5) cambios colaterales en resiliencia, mensajes, dobles y adaptador Anthropic; (6) historial que termina en user produce dos user seguidos sin test."
+      "revisado_por_revisor": false,
+      "notas": "Revisor APROBADO a la primera. MENOR: (1) las cifras dichas por el cliente en el historial o en el mensaje cuentan como sustento en T10 (cifra sembrada, limitacion a documentar); (2) reglas y clasificador solo evaluan el mensaje actual, no el historial; (3) cedulas, nombres y direcciones no se enmascaran en logs (limite de T09); (4) ids de tool duplicados solo los detecta FakeLLM; (5) cambios colaterales en resiliencia, mensajes, dobles y adaptador Anthropic; (6) historial que termina en user produce dos user seguidos sin test. Reabierta (sesión 08, fix tras prueba en vivo)."
     },
     {
       "id": "T15",
@@ -301,7 +301,7 @@
       "id": "T16",
       "fase": 3,
       "titulo": "CLI de chat",
-      "estado": "hecha",
+      "estado": "en_progreso",
       "prioridad": "obligatoria",
       "depende_de": [
         "T14"
@@ -312,8 +312,8 @@
         "Muestra fuentes y acción"
       ],
       "verificacion": "python -m pytest tests/test_cli.py -q",
-      "revisado_por_revisor": true,
-      "notas": "Revisor APROBADO a la primera. MENOR: llm_demo._PEDIDO sin limite de digitos (ORD-10011 se lee como ORD-1001); con varios ORD solo consulta el primero; con clave anthropic invalida resiliencia imprime un traceback en stderr; el demo pega el titulo del documento. HALLAZGO EN T08 (fuera de alcance): frases como 'quiero poner una queja del trato de un empleado' no escalan por reglas; pendiente de decision del humano."
+      "revisado_por_revisor": false,
+      "notas": "Revisor APROBADO a la primera. MENOR: llm_demo._PEDIDO sin limite de digitos (ORD-10011 se lee como ORD-1001); con varios ORD solo consulta el primero; con clave anthropic invalida resiliencia imprime un traceback en stderr; el demo pega el titulo del documento. HALLAZGO EN T08 (fuera de alcance): frases como 'quiero poner una queja del trato de un empleado' no escalan por reglas; pendiente de decision del humano. Reabierta (sesión 08, fix tras prueba en vivo)."
     },
     {
       "id": "T17",

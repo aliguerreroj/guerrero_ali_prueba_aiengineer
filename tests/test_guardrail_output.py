@@ -737,3 +737,42 @@ class TestRobustez:
         _ver("treinta y " * 20000, "")
         _ver("no " * 30000 + "te garantizo", "")
         assert time.perf_counter() - t0 < 10
+
+
+def test_promesa_de_notificacion_se_bloquea():
+    from tiendahogar_agent.guardrail_compromisos import R_NOTIFICACION, detectar_compromisos
+
+    for frase in [
+        "Te enviaremos un email con el número de seguimiento.",
+        "Recibirás un correo de confirmación.",
+        "Te llegará una notificación cuando salga.",
+    ]:
+        assert R_NOTIFICACION in [r for r, _ in detectar_compromisos(frase)], frase
+    # negación o política + coma + promesa: la negación/política no exime la promesa
+    for frase in [
+        "No te lo puedo garantizar, te notificaremos por email.",
+        "No hacemos excepciones, te enviaremos un correo.",
+        "El reembolso se aprueba tras revisar el producto, te enviaremos un correo.",
+        "Si tu reembolso es aprobado, te enviaremos un email de confirmación.",
+        "No podemos aprobar eso ahora, te avisaremos por email.",
+        "Si tu reembolso es aprobado, te avisaremos y te notificaremos por correo.",
+    ]:
+        assert R_NOTIFICACION in [r for r, _ in detectar_compromisos(frase)], frase
+    legitimas = [
+        "Escríbenos a soporte@tiendahogar.example y te ayudarán.",
+        "Puedes contactar al equipo humano.",
+        "Si tu reembolso es aprobado, te avisaremos.",
+        "Te enviaré la política en este chat.",
+    ]
+    for frase in legitimas:
+        assert not detectar_compromisos(frase), frase
+
+
+def test_verificar_salida_bloquea_promesa_de_notificacion():
+    from tiendahogar_agent.guardrail_compromisos import R_NOTIFICACION
+    from tiendahogar_agent.guardrail_output import verificar_salida
+
+    r = verificar_salida(
+        "Te enviaremos un email con el seguimiento.", "responder", [], [], None, "hola"
+    )
+    assert not r.ok and R_NOTIFICACION in r.reglas_fallidas

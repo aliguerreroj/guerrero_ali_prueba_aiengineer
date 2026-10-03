@@ -45,3 +45,16 @@ Advertencia de honestidad: el 100 % posterior es optimista. Las 39 frases de com
 - Las métricas (51/51 y 0/57) provienen de un conjunto fijo y pequeño de 108 frases conocido durante el ajuste; no son una estimación del desempeño en producción.
 - Medición independiente del revisor sobre frases nuevas (no guardadas en el repo): detección 42/47 (89,4 %) y falsos positivos 0/51. Es la cifra más cercana al desempeño real y queda justo por debajo del 90 %. Escapes: verbos de envío o transferencia del dinero («te enviaremos el dinero», «te transferimos el valor»), estados de proceso («tu reembolso ya está en proceso», «se procesa tu reembolso») y gerundio con enclítico («devolviéndote»). Mejora futura posible.
 - La protección real contra aprobaciones se apoya en que el agente no tiene tools de aprobación y en que el guardrail de entrada escala los casos prohibidos.
+
+## Nota (2026-10-03): familia de promesas de notificación
+Una prueba en vivo con Claude Haiku mostró que el modelo inventa pasos que ningún documento respalda («te enviaremos un email con el número de seguimiento», «revisa tu correo de confirmación o tu cuenta», «el equipo te ayudará con la reparación o reemplazo»). Respuesta en capas:
+- **Prompt (defensa principal):** prohíbe mencionar procesos, notificaciones, cuentas, correos, seguimiento, reparación o reemplazo que no estén en los documentos recuperados o en la tool; exige tuteo neutro sin voseo. Fijado por `tests/test_prompts.py`.
+- **Regla nueva `promesa_notificacion` (R_NOTIFICACION)** en `guardrail_compromisos`, integrada en `verificar_salida`: «te enviaremos/notificaremos/avisaremos/contactaremos/escribiremos/mandaremos», «recibirás un correo/mensaje/notificación...», «te llegará un email...». Solo primera persona del plural/futuro; «un agente te contactará» (tercera persona) queda permitido porque el conjunto fijo ya lo etiquetaba legítimo. Para «Si tu reembolso es aprobado, te avisaremos.» (legítima en el conjunto) hay una excepción acotada (`_AVISO_CONDICIONAL`): solo condicional sobre el estado + «te avisaremos» (con «por correo/email/mensaje» opcional, caso ya etiquetado legítimo en `test_guardrail_output.py`) al final del texto; «te enviaremos un email» tras condicional y cualquier «te avisaremos» tras negación o política siguen bloqueadas. Se excluyen las formas en primera persona del singular «enviaré/mandaré» (p. ej. «Te enviaré la política en este chat» es legítimo).
+- **Conjunto fijo ampliado** de 108 a 139 frases (18 compromisos de notificación nuevos, con los 3 casos reales y variantes con negación, política y condicional más coma; 13 legítimas de canal humano). Sin cambiar etiquetas existentes.
+
+| Momento | Detección | Falsos positivos |
+|---|---|---|
+| Conjunto de 139 frases, antes de la regla | 51/69 (73,9 %) | 0/70 (0,0 %) |
+| Después | 69/69 (100 %) | 0/70 (0,0 %) |
+
+Limitaciones: «revisa tu correo de confirmación o tu cuenta» (imperativo) y «te ayudará con la reparación o reemplazo» NO los detecta ningún mecanismo léxico razonable sin falsos positivos (revisar el correo o hablar de reparación puede ser legítimo si lo dicen los documentos); su defensa es el prompt. Las cifras siguen siendo de un conjunto conocido al ajustar.

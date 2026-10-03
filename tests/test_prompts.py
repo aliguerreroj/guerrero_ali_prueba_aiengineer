@@ -173,3 +173,66 @@ def test_prompt_de_escalamiento():
         assert "tuteando" in texto and "No prometas" in texto
         assert "herramientas" in texto
     assert cargar_prompt_escalamiento("legal") != cargar_prompt_escalamiento("facturacion")
+
+
+# Formas de voseo típicas (lista explícita para no tocar «además», «también», «café»...).
+_VOSEO = re.compile(
+    r"\b(?:notás|podés|tenés|querés|sabés|decís|hacés|venís|sos|escribí|mirá|fijate|avisame|"
+    r"contame|decime|mandame|pasame|dale|ponete|esperá|revisá|llamá|contactá|consultá)\b",
+    re.IGNORECASE,
+)
+
+
+def _sin_ejemplos_de_voseo(texto: str) -> str:
+    """Quita solo las líneas de ejemplos de corrección, identificadas por la flecha «→»."""
+    return "\n".join(l for l in texto.splitlines() if "→" not in l)
+
+
+def test_prompt_prohibe_inventar_procesos_y_pasos():
+    p = _p()
+    for fragmento in [
+        "nunca menciones procesos",
+        "notificaciones",
+        "cuentas",
+        "correos de confirmación",
+        "seguimiento",
+        "rastreo",
+        "reparación",
+        "reemplazo",
+        "no esté en los documentos recuperados",
+        "resultado de la herramienta",
+        "revisa tu correo de confirmación",
+        "te enviaremos un email con el número de seguimiento",
+        "ofrece el canal humano",
+    ]:
+        assert fragmento in p, fragmento
+
+
+def test_prompt_exige_tuteo_neutro_y_prohibe_voseo():
+    p = _p()
+    assert "tuteo neutro" in p and "prohibido el voseo" in p
+    for voseo, tuteo in [
+        ("notás", "notas"), ("podés", "puedes"), ("escribí", "escribe"),
+        ("tenés", "tienes"), ("querés", "quieres"), ("mirá", "mira"),
+    ]:
+        assert f"{voseo} → {tuteo}" in p
+
+
+def test_plantillas_sin_voseo_fuera_de_los_ejemplos():
+    plantillas = Path(prompts.__file__).resolve().parent / "plantillas"
+    archivos = sorted(plantillas.glob("*.md"))
+    assert len(archivos) >= 4
+    for archivo in archivos:
+        texto = _sin_ejemplos_de_voseo(archivo.read_text(encoding="utf-8"))
+        assert not _VOSEO.search(texto), f"{archivo.name}: {_VOSEO.search(texto).group()}"
+    # el filtro no es un colador: detecta voseo real
+    assert _VOSEO.search("Si querés, escribí al correo")
+    assert not _VOSEO.search("Además, también puedes escribir")
+
+
+def test_prompt_escalamiento_prohibe_procesos_y_voseo():
+    from tiendahogar_agent.prompts import cargar_prompt_escalamiento
+
+    texto = cargar_prompt_escalamiento("otra").lower()
+    assert "no menciones procesos" in texto
+    assert "voseo" in texto

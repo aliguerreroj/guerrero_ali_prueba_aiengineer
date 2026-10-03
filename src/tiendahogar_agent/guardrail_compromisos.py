@@ -42,6 +42,12 @@ Frontera de decisión:
   resultado (reembolso, aprobación, excepción, dinero, solución, «saldrá bien»...);
   «te aseguro que un humano revisará tu caso» pasa. «Garantizado contra/por...»
   describe la cobertura del fabricante y pasa.
+- Promesas de notificación (R_NOTIFICACION): «te enviaremos/notificaremos/avisaremos/
+  contactaremos/escribiremos/mandaremos», «recibirás un correo/mensaje...», «te llegará un
+  email...». Solo primera persona del plural/futuro: «un agente te contactará»
+  (tercera persona, etiquetada legítima en el conjunto fijo) NO se bloquea. Limitación:
+  «revisa tu correo de confirmación o tu cuenta» y «te ayudará con la reparación o
+  reemplazo» no se detectan; la defensa es el prompt.
 - Métrica medida (conjunto fijo tests/data/compromisos_eval.json, ADR-005):
   tests/test_compromisos_metricas.py exige detección >= 90 % y falsos positivos <= 5 %.
 - Limitaciones: es léxico; una negación fuera de la lista cerrada no se reconoce;
@@ -58,6 +64,7 @@ from tiendahogar_agent.texto import quitar_tildes
 R_REEMBOLSO = "compromiso_reembolso_aprobado"
 R_GARANTIA = "compromiso_garantia_resultado"
 R_EXCEPCION = "compromiso_excepcion"
+R_NOTIFICACION = "promesa_notificacion"
 
 _INVISIBLES = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060\ufeff\u00ad]")
 _MARCAS = re.compile(r"[*_`~]")
@@ -150,6 +157,15 @@ _POLITICA = [
     ),
 ]
 _NEUTRO = " | "
+# Excepción ACOTADA de R_NOTIFICACION (el conjunto fijo etiqueta legítima «Si tu reembolso es
+# aprobado, te avisaremos.»): solo condicional sobre el estado + «te avisaremos» (con «por correo/email/mensaje»
+# opcional, que el test estructural existente etiqueta legítimo). «te enviaremos/notificaremos...»
+# tras condicional, y «te avisaremos» tras negación/política, siguen bloqueadas.
+_AVISO_CONDICIONAL = re.compile(
+    r"\b(?:si|cuando|una\s+vez\s+que)\s+(?:(?:tu|su|el|la)\s+)?(?:" + _SUST_S + "|" + _CASO + r")\s+"
+    r"(?:es|sea|fue|queda|quede)\s+(?:ya\s+)?" + _PART_C + r"\s*,?\s*(?:te|le)\s+(?:avisaremos|avisare)"
+    r"(?:\s+por\s+(?:correo|email|mensaje))?(?=\s*[.!?]*\s*$)"
+)
 
 
 def _normalizar(texto: str) -> str:
@@ -158,6 +174,7 @@ def _normalizar(texto: str) -> str:
 
 
 def _neutralizar(texto: str) -> str:
+    texto = _AVISO_CONDICIONAL.sub(_NEUTRO, texto)
     for patron in (_NEG_EXCEPCION, _NEG_VERBO, _NEG_ESTADO, *_POLITICA):
         texto = patron.sub(_NEUTRO, texto)
     return texto
@@ -345,6 +362,15 @@ _REGLAS: list[tuple[str, re.Pattern[str]]] = [
         r"\bsolo\s+(?:por\s+)?esta\s+vez\b",
         r"\b" + _CLS + _SALTO + r"\s+(?:[a-z]+\s+){0,3}"
         r"(?:politicas?|normas?|reglas?|requisitos?|plazos?|condiciones|limites?|umbral|restricciones?)\b",
+    )),
+    (R_NOTIFICACION, _c(
+        # promesas de notificación o contacto que ningún documento respalda
+        r"\b(?:te|le|les)\s+(?:lo\s+)?(?:enviaremos|notificaremos|notificare|avisaremos|avisare|"
+        r"contactaremos|contactare|escribiremos|escribire|mandaremos|llamaremos|llamare)\b",
+        r"\b(?:recibiras|recibira|recibiran)\s+(?:ya\s+)?(?:(?:un|una|otro|otra|el|la|unos|unas|tu|su)\s+)?"
+        r"(?:[a-z]+\s+){0,2}(?:correo|email|e-mail|mail|mensaje|notificacion|notificaciones|sms|whatsapp|llamada)\b",
+        r"\b(?:te|le|les)\s+(?:llegara|llegaran)\s+(?:ya\s+)?(?:un|una|unos|unas|el|la)?\s*(?:[a-z]+\s+){0,2}"
+        r"(?:correo|email|e-mail|mail|mensaje|notificacion|notificaciones|sms|whatsapp)\b",
     )),
 ]
 

@@ -59,6 +59,7 @@ from pydantic import BaseModel, ConfigDict
 from tiendahogar_agent.guardrail_compromisos import (
     R_EXCEPCION,
     R_GARANTIA,
+    R_NOTIFICACION,
     R_REEMBOLSO,
     detectar_compromisos,
 )
@@ -406,7 +407,7 @@ def _verificar(
     por_regla: dict[str, str] = {}
     for regla, frase in detectar_compromisos(texto):
         por_regla.setdefault(regla, frase)
-    for regla in (R_REEMBOLSO, R_GARANTIA, R_EXCEPCION):
+    for regla in (R_REEMBOLSO, R_GARANTIA, R_EXCEPCION, R_NOTIFICACION):
         if regla in por_regla:
             reglas.append(regla)
             detalles.append(f"compromiso no autorizado: «{por_regla[regla]}»")
