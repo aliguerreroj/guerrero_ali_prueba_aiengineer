@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 RUTA_YAML_POR_DEFECTO = Path(__file__).resolve().parents[2] / "settings.yaml"
@@ -47,6 +47,19 @@ class Settings(BaseSettings):
     timeout_llm_s: float = 30
     timeout_tool_s: float = 5
     anthropic_api_key: SecretStr | None = None
+    # Chunking de documentos (T05)
+    chunk_strategy: Literal["none", "fixed", "recursive", "auto"] = "auto"
+    chunk_umbral_corto: int = 1000  # caracteres; auto no divide documentos <= umbral
+    chunk_tamano: int = 500
+    chunk_solape: int = 50
+
+    @model_validator(mode="after")
+    def _validar_chunking(self) -> Settings:
+        if self.chunk_umbral_corto < 1 or self.chunk_tamano < 1:
+            raise ValueError("chunk_umbral_corto y chunk_tamano deben ser >= 1")
+        if not 0 <= self.chunk_solape < self.chunk_tamano:
+            raise ValueError("chunk_solape debe estar entre 0 y chunk_tamano - 1")
+        return self
 
     @classmethod
     def settings_customise_sources(

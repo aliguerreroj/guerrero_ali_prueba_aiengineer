@@ -1,6 +1,7 @@
 """Pruebas de configuración (sin red ni API key)."""
 
 import pytest
+from pydantic import ValidationError
 
 from tiendahogar_agent.config import Settings, ruta_yaml
 
@@ -50,3 +51,20 @@ def test_yaml_sin_claves():
     from tiendahogar_agent.config import RUTA_YAML_POR_DEFECTO
 
     assert "api_key" not in RUTA_YAML_POR_DEFECTO.read_text(encoding="utf-8").lower()
+
+
+def test_chunking_defaults_y_entorno(monkeypatch):
+    s = Settings()
+    assert s.chunk_strategy == "auto" and s.chunk_umbral_corto >= 400
+    assert 0 <= s.chunk_solape < s.chunk_tamano
+    monkeypatch.setenv("CHUNK_STRATEGY", "fixed")
+    monkeypatch.setenv("CHUNK_TAMANO", "200")
+    s = Settings()
+    assert s.chunk_strategy == "fixed" and s.chunk_tamano == 200
+
+
+def test_chunking_valores_invalidos():
+    with pytest.raises(ValidationError):
+        Settings(chunk_strategy="magica")
+    with pytest.raises(ValidationError):
+        Settings(chunk_tamano=10, chunk_solape=10)

@@ -80,7 +80,7 @@
       "id": "T05",
       "fase": 1,
       "titulo": "Loader + chunker",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T03"
@@ -92,8 +92,8 @@
         "No modifica los archivos fuente"
       ],
       "verificacion": "python -m pytest tests/test_loader_chunker.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: APROBADO (1.ª vez), sin BLOQUEANTES. MENOR: se lee con utf-8 y no utf-8-sig (un archivo con BOM pierde el H1 y el título cae al derivado del nombre; los 5 docs reales no tienen BOM); fixed/recursive aplican strip() a cada chunk, por lo que se pierden espacios de borde (T06 no debe comparar posiciones de carácter); un texto de solo espacios en auto/none devuelve [] y cargar() lo cubre con ErrorDocumentos."
     },
     {
       "id": "T06",
