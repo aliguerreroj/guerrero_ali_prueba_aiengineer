@@ -174,7 +174,7 @@
       ],
       "verificacion": "python -m pytest tests/test_pii.py -q",
       "revisado_por_revisor": true,
-      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTES: móvil con indicativo entre paréntesis y tarjetas Luhn con último grupo corto, corregidos) y luego APROBADO. MENOR: NFKC altera texto no PII del texto devuelto (½, …, ™, ligaduras, NBSP); teléfonos no colombianos sin '+' ni 00, saltos de línea como separador, dígitos sueltos y correos sin TLD no se enmascaran (decisión de diseño); '3000000000 pesos' se enmascara como teléfono; id pegado a tarjeta sin separador se altera; docstring con redacción poco clara sobre grupos de 4 a 6 y último grupo corto."
+      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTES: móvil con indicativo entre paréntesis y tarjetas Luhn con último grupo corto, corregidos) y luego APROBADO. MENOR: NFKC altera texto no PII del texto devuelto (½, …, ™, ligaduras, NBSP); teléfonos no colombianos sin '+' ni 00, saltos de línea como separador, dígitos sueltos y correos sin TLD no se enmascaran (decisión de diseño); '3000000000 pesos' se enmascara como teléfono; id pegado a tarjeta sin separador se altera; docstring con redacción poco clara sobre grupos de 4 a 6 y último grupo corto. | Fix posterior (revisor APROBADO): NFKC solo detecta y el texto devuelto conserva lo que no es PII (mapa de índices). MENOR: idempotencia rota con entrada ASCII patologica del regex de correo (existia antes); digitos circulados (①②③) antes de un telefono se devuelven normalizados (123)."
     },
     {
       "id": "T10",

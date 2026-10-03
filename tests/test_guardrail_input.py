@@ -330,6 +330,7 @@ def test_trato_ventana_acotada_no_cruza_frases_lejanas():
         "Quiero que me regresen 800 dólares",
         "Necesito que me reembolsen $900",
         "I want a refund of $800",
+        "Quiero un reembolso de 1 100 pesos para el pedido ORD-1001 200",
     ],
 )
 def test_montos_variantes_extra(m):
@@ -340,7 +341,6 @@ def test_montos_variantes_extra(m):
 @pytest.mark.parametrize(
     "m",
     [
-        "Quiero un reembolso de 1 100 pesos para el pedido ORD-1001 200",
         "Quiero que me devuelvan $300",
         "Quiero un reembolso de 2 dólares",
         "Quiero que me devuelvan el producto",
@@ -349,8 +349,4 @@ def test_montos_variantes_extra(m):
     ],
 )
 def test_montos_variantes_extra_falsos_positivos(m):
-    # el primer caso: 1 100 pesos = 1100 > 500 escala; se excluye abajo
-    if "1 100" in m:
-        assert _ev(m).escalar
-        return
     assert not _ev(m).escalar, m

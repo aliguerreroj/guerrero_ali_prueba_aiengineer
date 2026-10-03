@@ -214,3 +214,42 @@ def test_normalizacion_idempotente_y_conserva_texto():
     assert enmascarar_pii(texto) == texto
     mixto = "a b ３００１２３４５６７"
     assert enmascarar_pii(enmascarar_pii(mixto)) == enmascarar_pii(mixto)
+
+
+# --- el texto no PII se conserva intacto (NFKC solo para detectar) ---
+
+NO_PII_RAROS = "½ taza… producto™ ﬁnal\u00a0listo"
+
+
+def test_no_pii_con_caracteres_compatibles_queda_identico():
+    assert enmascarar_pii(NO_PII_RAROS) == NO_PII_RAROS
+    for c in ["½", "…", "™", "ﬁ", "\u00a0"]:
+        assert enmascarar_pii(f"a{c}b") == f"a{c}b"
+
+
+def test_pii_con_digitos_ancho_completo_se_enmascara():
+    assert enmascarar_pii("Llámame al ３００１２３４５６７ ya") == "Llámame al [TELEFONO] ya"
+
+
+def test_pii_con_nbsp_se_enmascara():
+    assert enmascarar_pii("Tel 300\u00a0123\u00a04567 ok") == "Tel [TELEFONO] ok"
+
+
+def test_mezcla_pii_y_texto_raro():
+    t = "½ taza… ３００\u00a0１２３\u00a04567 y ana@example.com ™ ﬁn"
+    assert enmascarar_pii(t) == "½ taza… [TELEFONO] y [CORREO] ™ ﬁn"
+
+
+def test_idempotencia_con_caracteres_raros():
+    t = "½ taza… ３００\u00a0１２３\u00a04567 ™ ﬁn ana@example.com"
+    una = enmascarar_pii(t)
+    assert enmascarar_pii(una) == una
+
+
+@pytest.mark.parametrize("prefijo", ["Espera…", "Marca™", "ﬁnal", "…™ﬁ…™ﬁ"])
+def test_expansion_nfkc_no_desalinea_indices(prefijo):
+    assert enmascarar_pii(f"{prefijo} 3001234567 fin") == f"{prefijo} [TELEFONO] fin"
+    assert enmascarar_pii(f"{prefijo} ana@example.com fin") == f"{prefijo} [CORREO] fin"
+    assert (
+        enmascarar_pii(f"{prefijo} 4111 1111 1111 1111 fin") == f"{prefijo} [TARJETA] fin"
+    )

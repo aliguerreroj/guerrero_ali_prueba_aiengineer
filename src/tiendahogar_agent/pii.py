@@ -9,7 +9,8 @@ Frontera de decisiones:
   sobre sus propios dígitos (así "ORD-1001 3001234567" sigue enmascarando el teléfono).
   Con separadores, cada grupo debe tener 4 a 6 dígitos (4-4-4-4, 4-6-5...), así un id o
   número corto seguido de un teléfono no se confunde con una tarjeta aunque pase Luhn.
-- Texto de entrada normalizado con NFKC y tab como espacio (ver `_normalizar`).
+- NFKC (por carácter, con mapa de índices) y tab como espacio solo para detectar; el texto
+  devuelto conserva intacto todo lo que no es PII (ver `_normalizar_con_mapa`).
 - Separadores de tarjeta: espacio (hasta 2), '.', '-' o '/'; el último grupo puede ser corto
   (1 a 6 dígitos) y los anteriores deben tener 4 a 6.
 - Limitaciones documentadas: teléfonos no colombianos sin '+'/00 no se enmascaran (decisión
@@ -57,14 +58,36 @@ _RE_PII = re.compile(
 _RE_SEP_TARJETA = re.compile(r"[ .\-/]+")
 
 
-def _normalizar(texto: str) -> str:
-    """NFKC (dígitos de ancho completo, NBSP) y tabuladores como espacio.
+def _normalizar_con_mapa(texto: str) -> tuple[str, list[int]]:
+    """NFKC por carácter (y tab como espacio) con mapa a los índices del original.
 
-    Se aplica de forma uniforme a todo el texto devuelto; NFKC también altera texto no PII
-    (p. ej. ligaduras, fracciones, formas compatibles), lo cual es aceptable aquí y es
-    idempotente.
+    La normalización solo sirve para DETECTAR (dígitos de ancho completo, NBSP...). Cada
+    carácter normalizado apunta al índice del carácter original del que proviene, así los
+    tramos detectados se reemplazan en el texto original y lo que no es PII queda intacto.
     """
-    return unicodedata.normalize("NFKC", texto).replace("	", " ")
+    partes: list[str] = []
+    mapa: list[int] = []
+    for i, c in enumerate(texto):
+        n = " " if c == "	" else unicodedata.normalize("NFKC", c)
+        partes.append(n)
+        mapa.extend([i] * len(n))
+    return "".join(partes), mapa
+
+
+def _sustituir(texto: str, patron: re.Pattern, fn) -> str:
+    """Detecta sobre el texto normalizado y reemplaza los tramos en el original."""
+    norm, mapa = _normalizar_con_mapa(texto)
+    salida: list[str] = []
+    pos = 0
+    for m in patron.finditer(norm):
+        if m.end() == m.start():
+            continue
+        ini, fin = mapa[m.start()], mapa[m.end() - 1] + 1
+        salida.append(texto[pos:ini])
+        salida.append(fn(m))
+        pos = fin
+    salida.append(texto[pos:])
+    return "".join(salida)
 
 
 def _luhn(digitos: str) -> bool:
@@ -108,8 +131,8 @@ def enmascarar_pii_con_conteos(texto: str) -> tuple[str, dict[str, int]]:
             return TARJETA
         return _RE_TEL.sub(_tel_simple, candidato)
 
-    texto = _normalizar(texto)
-    return _RE_PII.sub(_pii, _RE_CORREO.sub(_correo, texto)), conteos
+    texto = _sustituir(texto, _RE_CORREO, _correo)
+    return _sustituir(texto, _RE_PII, _pii), conteos
 
 
 def enmascarar_pii(texto: str) -> str:
