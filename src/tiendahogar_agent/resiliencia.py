@@ -31,7 +31,14 @@ from tiendahogar_agent.texto import es_vacio_visible
 
 logger = logging.getLogger(__name__)
 
-MotivoFallo = Literal["llm_error", "llm_respuesta_vacia", "tool_error_interno", "retriever_error"]
+MotivoFallo = Literal[
+    "llm_error",
+    "llm_respuesta_vacia",
+    "tool_error_interno",
+    "retriever_error",
+    "bucle_sin_respuesta",  # T14: iteraciones agotadas, responder duplicado o texto sin responder
+    "error_inesperado",  # T14: excepción no prevista capturada en el borde del orquestador
+]
 
 # Sin cifras, sin fuentes y sin compromisos: no dispara la verificación de salida.
 MENSAJE_FALLO_SEGURO = (
@@ -71,7 +78,7 @@ def respuesta_fallo_seguro(motivo: MotivoFallo, trace_id: str = "") -> Respuesta
     )
 
 
-def _fallar(
+def fallar(
     motivo: MotivoFallo,
     trace_id: str,
     exc: BaseException | None = None,
@@ -106,9 +113,9 @@ def llamar_llm_seguro(
         extra = {} if max_tokens is None else {"max_tokens": max_tokens}
         respuesta = llm.completar(mensajes, tools=tools, timeout=settings.timeout_llm_s, **extra)
     except ErrorLLM as exc:
-        return _fallar("llm_error", trace_id, exc)
+        return fallar("llm_error", trace_id, exc)
     if es_vacio_visible(respuesta.texto) and not respuesta.llamadas_tools:
-        return _fallar("llm_respuesta_vacia", trace_id, detalle="el LLM no devolvió texto ni tools")
+        return fallar("llm_respuesta_vacia", trace_id, detalle="el LLM no devolvió texto ni tools")
     return respuesta
 
 
@@ -119,7 +126,7 @@ def recuperar_seguro(
     try:
         return retriever.recuperar(consulta)
     except _ERRORES_RETRIEVER as exc:
-        return _fallar("retriever_error", trace_id, exc)
+        return fallar("retriever_error", trace_id, exc)
 
 
 def revisar_resultado_tool(
@@ -127,10 +134,10 @@ def revisar_resultado_tool(
 ) -> RespuestaFalloSeguro | None:
     """None si el resultado es usable; fallo seguro si no es dict o es `error_interno`."""
     if not isinstance(resultado, dict):
-        return _fallar(
+        return fallar(
             "tool_error_interno", trace_id,
             detalle=f"resultado de tool no es dict (tipo {type(resultado).__name__})",
         )
     if resultado.get("error") == "error_interno":
-        return _fallar("tool_error_interno", trace_id, detalle=str(resultado.get("mensaje", "")))
+        return fallar("tool_error_interno", trace_id, detalle=str(resultado.get("mensaje", "")))
     return None

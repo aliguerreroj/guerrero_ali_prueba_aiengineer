@@ -92,6 +92,9 @@ def test_historial_valido():
         ],
         [mensaje_asistente(None, [LL1, LL1])],  # ids repetidos
         [mensaje_asistente(None, [LlamadaTool(id="", nombre="t")])],  # id de llamada vacío
+        [USUARIO, mensaje_asistente(None, [])],  # asistente vacío sin tools
+        [USUARIO, mensaje_asistente("  ", [])],
+        [USUARIO, mensaje_asistente("", []), USUARIO],
     ],
 )
 def test_historial_invalido(historial):

@@ -256,7 +256,7 @@
       "id": "T14",
       "fase": 3,
       "titulo": "Orquestador con tool use (buscar_politicas, consultar_estado_pedido, responder)",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T04",
@@ -277,8 +277,8 @@
         "Límite máximo de iteraciones del bucle, configurable"
       ],
       "verificacion": "python -m pytest tests/test_orchestrator.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. MENOR: (1) las cifras dichas por el cliente en el historial o en el mensaje cuentan como sustento en T10 (cifra sembrada, limitacion a documentar); (2) reglas y clasificador solo evaluan el mensaje actual, no el historial; (3) cedulas, nombres y direcciones no se enmascaran en logs (limite de T09); (4) ids de tool duplicados solo los detecta FakeLLM; (5) cambios colaterales en resiliencia, mensajes, dobles y adaptador Anthropic; (6) historial que termina en user produce dos user seguidos sin test."
     },
     {
       "id": "T15",
@@ -296,7 +296,7 @@
       "verificacion": "python -m pytest tests/test_intent.py -q",
       "revisado_por_revisor": true,
       "notas": "Revisor APROBADO a la primera. MENOR: clasificador.py importa _leer_plantilla y _neutralizar privados de prompts.py; el enmascarado de PII no cubre nombres ni direcciones; un LLM propio sin max_tokens en completar da TypeError (bug de programacion); falta integrarlo en el flujo (T14)."
-  },
+    },
     {
       "id": "T16",
       "fase": 3,

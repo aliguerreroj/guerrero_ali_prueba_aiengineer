@@ -582,3 +582,26 @@ def test_azure_max_tokens_por_llamada_sobrescribe():
     llm = AzureOpenAILLM(_settings_azure(llm_max_tokens=64), cliente=cliente)
     llm.completar(MENSAJES, max_tokens=16)
     assert reg.llamadas[0]["max_completion_tokens"] == 16
+
+
+def test_anthropic_omite_bloque_text_de_solo_espacios():
+    enviado = _anthropic_enviado(_historial(texto="  \n "))
+    assert [b["type"] for b in enviado[1]["content"]] == ["tool_use", "tool_use"]
+
+
+def test_anthropic_conserva_texto_no_vacio_antes_de_tool_use():
+    enviado = _anthropic_enviado(_historial(texto=" Voy a consultar "))
+    assert enviado[1]["content"][0] == {"type": "text", "text": " Voy a consultar "}
+
+
+@pytest.mark.parametrize("vacio", [None, "", "   ", "\n"])
+def test_adaptadores_rechazan_asistente_vacio_sin_tools(vacio):
+    historial = [
+        {"role": "user", "content": "hola"},
+        mensaje_asistente(vacio, []),
+        {"role": "user", "content": "¿sigues ahí?"},
+    ]
+    with pytest.raises(ErrorHistorialMensajes):
+        _anthropic_enviado(historial)
+    with pytest.raises(ErrorHistorialMensajes):
+        _azure_enviado(historial)

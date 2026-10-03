@@ -120,6 +120,9 @@ def test_definicion_tool_responder_valida_y_compatible_con_adaptador():
     assert esquema["properties"]["respuesta"]["type"] == "string"
     assert esquema["properties"]["fuentes"]["type"] == "array"
     assert esquema["required"] == ["respuesta"]
+    sugerida = esquema["properties"]["accion_sugerida"]
+    assert sugerida["enum"] == ["pedir_dato", "escalar"]  # nunca "responder"
+    assert "accion_sugerida" in _p() and "pedir_dato" in _p()
     traducida = _traducir_tool(tool)
     assert traducida["name"] == "responder" and traducida["input_schema"] == esquema
     assert "responder" in _p()
@@ -130,3 +133,43 @@ def test_guia_de_tono_existe_y_cubre_lavadora():
     assert "lavadora" in guia and "garantía" in guia
     assert "tuteo" in guia
     assert "malo" in guia and "bueno" in guia
+
+
+def test_definiciones_de_tools_de_consulta():
+    buscar = prompts.definicion_tool_buscar_politicas()
+    assert buscar["name"] == "buscar_politicas"
+    assert buscar["parameters"]["required"] == ["consulta"]
+    assert buscar["parameters"]["properties"]["consulta"]["type"] == "string"
+    pedido = prompts.definicion_tool_consultar_pedido()
+    assert pedido["name"] == "consultar_estado_pedido"
+    assert pedido["parameters"]["required"] == ["order_id"]
+    for tool in (buscar, pedido):
+        assert tool["parameters"]["additionalProperties"] is False
+        assert _traducir_tool(tool)["input_schema"] == tool["parameters"]
+
+
+def test_contexto_con_ids_explicitos():
+    resultados = [_resultado("a", "doc3"), _resultado("b", "doc1", 1)]
+    ctx = construir_contexto_documentos(resultados, ids=["doc3", "doc1"])
+    assert '<documento id="doc3" fuente="doc3">' in ctx
+    assert '<documento id="doc1" fuente="doc1">' in ctx
+    assert '<documento id="doc1" fuente="doc3">' not in construir_contexto_documentos(
+        resultados, ids=["doc3", "doc1"]
+    )
+    try:
+        construir_contexto_documentos(resultados, ids=["doc3"])
+    except ValueError:
+        pass
+    else:  # pragma: no cover
+        raise AssertionError("debía rechazar ids de distinta longitud")
+
+
+def test_prompt_de_escalamiento():
+    from tiendahogar_agent.prompts import cargar_prompt_escalamiento
+
+    for categoria in ["reembolso_alto", "queja_trato", "facturacion", "legal", "manipulacion", "otra"]:
+        texto = cargar_prompt_escalamiento(categoria)
+        assert CANAL_ESCALAMIENTO in texto and "{" not in texto
+        assert "tuteando" in texto and "No prometas" in texto
+        assert "herramientas" in texto
+    assert cargar_prompt_escalamiento("legal") != cargar_prompt_escalamiento("facturacion")

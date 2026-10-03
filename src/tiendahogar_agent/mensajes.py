@@ -47,7 +47,9 @@ def validar_historial(mensajes: list[dict[str, Any]]) -> None:
     """Falla rápido si el historial con tools es incoherente.
 
     Reglas: todo ``tool_call`` del asistente necesita su resultado antes de cualquier mensaje
-    que no sea ``tool``; todo resultado debe referir un id pendiente (no vacío, no repetido).
+    que no sea ``tool``; todo resultado debe referir un id pendiente (no vacío, no repetido);
+    un mensaje del asistente sin ``tool_calls`` no puede tener el contenido vacío (los SDK lo
+    rechazan y reinyectarlo indica un bug del orquestador).
     """
     pendientes: set[str] = set()
     vistos: set[str] = set()
@@ -70,6 +72,9 @@ def validar_historial(mensajes: list[dict[str, Any]]) -> None:
                 f"mensaje {i}: faltan resultados de tool para {len(pendientes)} llamada(s)"
             )
         if rol == "assistant":
+            contenido = m.get("content")
+            if not m.get("tool_calls") and not (isinstance(contenido, str) and contenido.strip()):
+                raise ErrorHistorialMensajes(f"mensaje {i}: asistente vacío sin llamadas de tool")
             for ll in m.get("tool_calls") or []:
                 ident = ll.get("id")
                 if not isinstance(ident, str) or not ident:

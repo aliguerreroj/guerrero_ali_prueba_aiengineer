@@ -4,6 +4,8 @@
 llm_provider: fake
 llm_model: claude-haiku-4-5-20251001
 llm_max_tokens: 1024
+# Orquestador (T14): máximo de llamadas al LLM por turno (bucle de tool use), >= 1.
+max_iteraciones_llm: 5
 # Clasificador de intención (T15): capa LLM tras las reglas deterministas (solo puede agregar escalamientos).
 usar_clasificador_llm: false
 max_tokens_clasificador: 96

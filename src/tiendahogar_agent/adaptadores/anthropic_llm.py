@@ -50,7 +50,8 @@ def _traducir_mensajes(mensajes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         en_resultados = False
         if rol == "assistant" and m.get("tool_calls"):
             bloques: list[dict[str, Any]] = []
-            if m.get("content"):
+            # Anthropic rechaza bloques text vacíos o de solo espacios.
+            if isinstance(m.get("content"), str) and m["content"].strip():
                 bloques.append({"type": "text", "text": m["content"]})
             for ll in m["tool_calls"]:
                 bloques.append(
