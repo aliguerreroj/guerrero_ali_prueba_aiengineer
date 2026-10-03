@@ -10,6 +10,8 @@ import pytest
 
 RUTA = Path(__file__).parent / "data" / "golden_prueba_en_vivo.json"
 CAMPOS = {"id", "pregunta", "accion_esperada", "fuentes_esperadas", "notas", "origen"}
+CAMPOS_OPCIONALES = {"historial"}
+ORIGENES = {"prueba_en_vivo", "prueba_en_vivo_2"}
 ACCIONES = {"responder", "escalar", "pedir_dato"}
 FUENTES_VALIDAS = {"doc1", "doc2", "doc3", "doc4", "doc5", "pedidos"}
 
@@ -19,17 +21,21 @@ def casos():
     return json.loads(RUTA.read_text(encoding="utf-8"))
 
 
-def test_hay_diez_casos_con_ids_unicos(casos):
-    assert isinstance(casos, list) and len(casos) == 10
-    assert len({c["id"] for c in casos}) == 10
+def test_hay_doce_casos_con_ids_unicos(casos):
+    assert isinstance(casos, list) and len(casos) == 12
+    assert len({c["id"] for c in casos}) == 12
+    assert sum(c["origen"] == "prueba_en_vivo" for c in casos) == 10
 
 
 def test_cada_caso_tiene_los_campos_y_tipos_correctos(casos):
     for c in casos:
-        assert set(c) == CAMPOS, c.get("id")
+        assert CAMPOS <= set(c) <= CAMPOS | CAMPOS_OPCIONALES, c.get("id")
+        for t in c.get("historial", []):
+            assert set(t) == {"role", "content"} and t["role"] in ("user", "assistant"), c["id"]
+            assert isinstance(t["content"], str) and t["content"].strip(), c["id"]
         for campo in ("id", "pregunta", "notas"):
             assert isinstance(c[campo], str) and c[campo].strip(), (c["id"], campo)
-        assert c["origen"] == "prueba_en_vivo"
+        assert c["origen"] in ORIGENES, c["id"]
         assert c["accion_esperada"] in ACCIONES, c["id"]
         assert isinstance(c["fuentes_esperadas"], list), c["id"]
         assert set(c["fuentes_esperadas"]) <= FUENTES_VALIDAS, c["id"]

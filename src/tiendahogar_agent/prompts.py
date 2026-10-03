@@ -154,15 +154,17 @@ def definicion_tool_responder() -> dict[str, Any]:
                     "type": "array",
                     "items": {"type": "string"},
                     "description": (
-                        "Identificadores de los documentos usados (p. ej. doc1). Si usaste "
-                        f"consultar_estado_pedido, incluye también «{FUENTE_PEDIDOS}»."
+                        "Identificadores de los documentos usados (p. ej. doc1). Incluye "
+                        f"«{FUENTE_PEDIDOS}» solo si la consulta del pedido devolvió un pedido; si "
+                        "devolvió error (no encontrado o formato inválido), no cites fuentes."
                     ),
                 },
                 "accion_sugerida": {
                     "type": "string",
                     "enum": list(ACCIONES_SUGERIBLES),
                     "description": (
-                        "Opcional. pedir_dato si tu mensaje pide al cliente un dato que falta; "
+                        "Opcional. pedir_dato si tu mensaje pide al cliente un dato que falta "
+                        "(también si el pedido no existe o el formato es inválido); "
                         "escalar si no hay sustento en los documentos o las herramientas "
                         "(incluye el canal humano en el mensaje). Omítelo si respondes normal."
                     ),

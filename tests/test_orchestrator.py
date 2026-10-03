@@ -140,7 +140,9 @@ def test_pedido_inexistente_no_escala(retriever):
         _responder("No encontré el pedido ORD-9999. ¿Puedes revisar el número?"),
     )
     r = orq.procesar("Mi pedido ORD-9999 no aparece")
-    assert r.accion == "responder" and CANAL_ESCALAMIENTO not in r.respuesta
+    # Ajustado (ronda 2): sin accion_sugerida, un turno que solo tuvo un id inexistente pasa a
+    # pedir_dato (el sistema lo fuerza); antes quedaba en responder.
+    assert r.accion == "pedir_dato" and CANAL_ESCALAMIENTO not in r.respuesta
     tool = _mensajes_tool(llm, 1)[0]
     assert tool["es_error"] is True and "no_encontrado" in tool["content"]
 
@@ -175,10 +177,11 @@ def test_responder_respeta_historial_en_dos_turnos(retriever):
     r2 = orq2.procesar("ORD-1002", historial=historial)
     assert r2.accion == "responder" and "Licuadora" in r2.respuesta
     roles = [m["role"] for m in llm2.llamadas[0]["mensajes"]]
-    # prompt, contexto de documentos del turno, historial y mensaje actual
-    assert roles == ["system", "system", "user", "assistant", "user"]
+    # prompt, contexto de documentos, consulta de pedido del sistema (ORD-1002 en el mensaje;
+    # ajustado en la ronda 2), historial y mensaje actual
+    assert roles == ["system", "system", "system", "user", "assistant", "user"]
     assert llm2.llamadas[0]["mensajes"][-1]["content"] == "ORD-1002"
-    assert llm2.llamadas[0]["mensajes"][3]["content"] == r1.respuesta
+    assert llm2.llamadas[0]["mensajes"][4]["content"] == r1.respuesta
     assert r1.trace_id != r2.trace_id
 
 
@@ -542,8 +545,9 @@ def test_historial_enviado_al_llm_es_coherente(retriever):
     for llamada in llm.llamadas:
         validar_historial(llamada["mensajes"])
     ultimo = llm.llamadas[-1]["mensajes"]
+    # (ronda 2) un system extra: la consulta de ORD-1001 que hace el sistema antes del LLM
     assert [m["role"] for m in ultimo] == [
-        "system", "system", "user", "assistant", "tool", "assistant", "tool"
+        "system", "system", "system", "user", "assistant", "tool", "assistant", "tool"
     ]
     assert llm.llamadas[0]["timeout"] == Settings().timeout_llm_s
 

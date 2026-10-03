@@ -30,6 +30,12 @@ Decisiones:
 - Borde externo: toda excepción inesperada (también un bug de programación o un
   `ErrorHistorialMensajes`) se registra con traceback enmascarado y escala: de cara al cliente
   el fallo seguro tiene prioridad (a diferencia del clasificador, que propaga los bugs).
+- Reconsulta por turno (ADR-007): antes del LLM se extraen los ids `ORD-####` (regex estricto) del
+  mensaje y del historial (user y assistant, máx. 3 los más recientes) y se reconsultan en el
+  repositorio; el resultado entra en la evidencia y en un mensaje de contexto. Del historial solo
+  se usan ids, jamás lo que dijo el asistente. Al entregar, si se cita «pedidos» sin ningún pedido
+  válido en la evidencia (habiendo consultas, todas con error), la cita se retira (T10 no cambia); si en el turno solo hubo ids
+  inexistentes/inválidos y no se cita nada, la acción pasa a `pedir_dato`.
 - Evidencia del turno: `verificar_salida` valida contra los chunks recuperados EN ESTE TURNO (el
   retriever automático más los de `buscar_politicas`, sin duplicar) y los pedidos consultados; la
   fuente «pedidos» solo es válida si la tool devolvió un pedido real.
@@ -54,13 +60,13 @@ from tiendahogar_agent.guardrail_input import (
     ResultadoGuardrail,
     evaluar_con_settings,
 )
-from tiendahogar_agent.guardrail_output import verificar_salida
+from tiendahogar_agent.guardrail_output import FUENTE_PEDIDOS, verificar_salida
 from tiendahogar_agent.mensajes import (
     mensaje_desde_respuesta,
     mensaje_resultado_tool,
 )
 from tiendahogar_agent.models import AgentResponse, Chunk, LlamadaTool, LLMResponse
-from tiendahogar_agent.pedidos import OrderRepositoryMock
+from tiendahogar_agent.pedidos import OrderRepositoryMock, _normalizar
 from tiendahogar_agent.pii import enmascarar_pii
 from tiendahogar_agent.prompts import (
     ACCIONES_SUGERIBLES,
@@ -91,6 +97,10 @@ MAX_MENSAJES_HISTORIAL = 20
 _MAX_CARACTERES_LOG = 200
 _ROLES_HISTORIAL = ("user", "assistant")
 _PATRON_PEDIDO = re.compile(r"ord\s*-?\s*\d", re.IGNORECASE)
+# Extracción ESTRICTA de ids para la reconsulta por turno (no usar el patrón laxo de arriba).
+_PATRON_ID_ESTRICTO = re.compile(r"(?<![A-Za-z0-9])ORD-[0-9]{4}(?![0-9])", re.IGNORECASE | re.ASCII)
+MAX_IDS_RECONSULTA = 3
+_ERRORES_DE_DATO = ("no_encontrado", "formato_invalido")
 
 MENSAJE_PEDIR_DATO = (
     "Hola, con gusto te ayudo. Cuéntame qué necesitas: puedo resolver dudas sobre garantía, "
@@ -160,6 +170,9 @@ class _Evidencia:
 
     chunks: list[Chunk] = field(default_factory=list)
     pedidos: list[dict[str, Any]] = field(default_factory=list)
+    # Subconjunto de `pedidos`: consultas del mensaje actual o hechas por el LLM en este turno
+    # (no las reconsultadas solo por el historial). Sirve para decidir `pedir_dato`.
+    pedidos_turno: list[dict[str, Any]] = field(default_factory=list)
     _vistos: set[tuple[str, str]] = field(default_factory=set)
 
     def agregar_chunks(self, nuevos: list[Chunk]) -> None:
@@ -168,6 +181,17 @@ class _Evidencia:
             if clave not in self._vistos:
                 self._vistos.add(clave)
                 self.chunks.append(chunk)
+
+    @property
+    def hay_pedido_valido(self) -> bool:
+        return any("error" not in p for p in self.pedidos)
+
+    @property
+    def solo_errores_de_dato_en_turno(self) -> bool:
+        """True si en este turno solo hubo consultas de pedido con id inexistente o inválido."""
+        return bool(self.pedidos_turno) and all(
+            p.get("error") in _ERRORES_DE_DATO for p in self.pedidos_turno
+        )
 
     @property
     def resultado_pedido(self) -> dict[str, Any] | None:
@@ -313,6 +337,11 @@ class Orquestador:
                 ),
             },
         )
+        reconsulta = self._reconsultar_pedidos(mensaje, turnos, evidencia, trace_id)
+        if isinstance(reconsulta, RespuestaFalloSeguro):
+            return reconsulta.respuesta
+        if reconsulta:
+            mensajes.insert(2, {"role": "system", "content": reconsulta})
         recordado = False
         intento_tools = False
         for _ in range(self._settings.max_iteraciones_llm):
@@ -349,6 +378,36 @@ class Orquestador:
         return fallar(
             "bucle_sin_respuesta", trace_id, detalle="iteraciones agotadas sin responder"
         ).respuesta
+
+    def _reconsultar_pedidos(
+        self, mensaje: str, turnos: list[dict[str, str]], evidencia: _Evidencia, trace_id: str
+    ) -> str | RespuestaFalloSeguro | None:
+        """Reconsulta determinista (ADR-007): ids del mensaje y del historial -> repositorio.
+
+        El repositorio es la única fuente de verdad: del historial solo se toman los ids, nunca
+        lo que dijo el asistente. Devuelve el mensaje de contexto para el LLM (o None si no hay
+        ids) o el fallo seguro si el repositorio falla.
+        """
+        ids_actuales = extraer_ids_pedido([mensaje], MAX_IDS_RECONSULTA)
+        ids = extraer_ids_pedido([t["content"] for t in turnos] + [mensaje], MAX_IDS_RECONSULTA)
+        if not ids:
+            return None
+        bloques: list[str] = []
+        for order_id in ids:
+            pedido = self._pedidos.consultar_estado_pedido(order_id)
+            fallo = revisar_resultado_tool(pedido, trace_id)
+            if fallo is not None:
+                return fallo
+            evidencia.pedidos.append(pedido)
+            if order_id in ids_actuales:
+                evidencia.pedidos_turno.append(pedido)
+            bloques.append(json.dumps(pedido, ensure_ascii=False))
+        logger.info("reconsulta de pedidos trace_id=%s cantidad=%d", trace_id, len(ids))
+        return (
+            "Consulta de pedido ya realizada por el sistema en este turno (datos autoritativos de "
+            "la tabla de pedidos; no hace falta repetirla con la herramienta). Cita «pedidos» solo "
+            "si usas un pedido que aparezca aquí sin error:\n" + "\n".join(bloques)
+        )
 
     @staticmethod
     def _texto_suelto(
@@ -392,6 +451,7 @@ class Orquestador:
             if fallo is not None:
                 return fallo.respuesta
             evidencia.pedidos.append(pedido)
+            evidencia.pedidos_turno.append(pedido)
             # Pedido inexistente o formato inválido NO escalan: el LLM lo explica o pide el dato.
             return _resultado(llamada, pedido, es_error="error" in pedido)
         if llamada.nombre in (NOMBRE_TOOL_BUSCAR, NOMBRE_TOOL_PEDIDO, NOMBRE_TOOL_RESPONDER):
@@ -414,6 +474,15 @@ class Orquestador:
             )
         accion = accion_mas_segura("responder", sugerida)
         fuentes = list(dict.fromkeys(args.get("fuentes") or []))
+        if FUENTE_PEDIDOS in fuentes and evidencia.pedidos and not evidencia.hay_pedido_valido:
+            # Cita sin respaldo (se consultó y dio error): se retira, lo cual no inventa nada. T10
+            # sigue verificando cifras y las demás fuentes.
+            fuentes = [f for f in fuentes if f != FUENTE_PEDIDOS]
+            logger.info("fuente pedidos retirada (sin pedido valido) trace_id=%s", trace_id)
+        if not fuentes and evidencia.solo_errores_de_dato_en_turno:
+            # Solo hubo ids inexistentes/inválidos y no se cita nada: la respuesta necesariamente
+            # pide revisar el número. Lado seguro: pedir_dato (entre responder y escalar).
+            accion = accion_mas_segura(accion, "pedir_dato")
         veredicto = verificar_salida(
             args["respuesta"].strip(), accion,  # type: ignore[arg-type]  # accion es una Accion válida
             fuentes, evidencia.chunks, evidencia.resultado_pedido, usuario,
@@ -433,6 +502,21 @@ class Orquestador:
 
 
 # ---------------------------------------------------------------------- utilidades
+def extraer_ids_pedido(textos: list[str], maximo: int = MAX_IDS_RECONSULTA) -> list[str]:
+    """Ids `ORD-####` (regex estricto) normalizados, sin repetir; los `maximo` más recientes.
+
+    Se recorre en orden de aparición; si un id se repite, cuenta su última aparición.
+    """
+    vistos: dict[str, None] = {}
+    for texto in textos:
+        for crudo in _PATRON_ID_ESTRICTO.findall(texto):
+            normalizado = _normalizar(crudo)
+            if normalizado is not None:
+                vistos.pop(normalizado, None)
+                vistos[normalizado] = None
+    return list(vistos)[-maximo:] if maximo > 0 else []
+
+
 def _args_texto(args: dict[str, Any], campo: str) -> bool:
     """True si `args` es exactamente `{campo: str no vacío}`."""
     valor = args.get(campo)

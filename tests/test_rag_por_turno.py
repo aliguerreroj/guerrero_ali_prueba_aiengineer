@@ -306,20 +306,24 @@ def test_consulta_de_pedido_cita_pedidos(retriever):
 
 
 def test_citar_pedidos_sin_haber_consultado_falla(retriever):
+    # Ajustado (ronda 2): con un ORD-#### en el mensaje el sistema ya consulta el pedido, así que
+    # citar «pedidos» tendría respaldo; el caso «nunca se consultó» se prueba sin id en el mensaje.
     orq, _ = _orq(retriever, _responder("Tu pedido ya va en camino.", ["pedidos"]))
-    r = orq.procesar("¿Dónde está mi pedido ORD-1001?")
+    r = orq.procesar("¿Dónde está mi pedido?")
     assert r.accion == "escalar" and r.respuesta == RESPUESTA_SEGURA and r.fuentes == []
     assert r.canal == CANAL_ESCALAMIENTO
 
 
-def test_citar_pedidos_si_la_tool_devolvio_error_falla(retriever):
+def test_citar_pedidos_si_la_tool_devolvio_error_se_retira_la_fuente(retriever):
+    # Ajustado (ronda 2): antes escalaba por fuente_no_recuperada; ahora la cita sin respaldo se
+    # retira y el turno pasa a pedir_dato (ADR-007). T10 directo sigue rechazándola.
     orq, _ = _orq(
         retriever,
         _tool("consultar_estado_pedido", {"order_id": "ORD-9999"}),
         _responder("No encontré el pedido ORD-9999. ¿Puedes revisar el número?", ["pedidos"]),
     )
     r = orq.procesar("Mi pedido ORD-9999 no aparece")
-    assert r.accion == "escalar" and r.respuesta == RESPUESTA_SEGURA
+    assert r.accion == "pedir_dato" and r.fuentes == [] and r.respuesta != RESPUESTA_SEGURA
 
 
 def test_pedido_inexistente_sin_citar_fuentes_no_escala(retriever):

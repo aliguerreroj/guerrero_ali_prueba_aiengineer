@@ -3,7 +3,9 @@
     "id": "vivo-01-licuadora-12-meses",
     "pregunta": "Me dijeron que la licuadora tiene 12 meses de garantía, ¿cierto?",
     "accion_esperada": "responder",
-    "fuentes_esperadas": ["doc1"],
+    "fuentes_esperadas": [
+      "doc1"
+    ],
     "notas": "Corregir al cliente: los electrodomésticos pequeños (licuadoras) tienen 6 meses de garantía, los grandes 12 (doc1). No confirmar los 12 meses. Caso real que antes terminó en fuente_no_recuperada + cifra_sin_sustento.",
     "origen": "prueba_en_vivo"
   },
@@ -35,7 +37,9 @@
     "id": "vivo-05-estado-pedido-existente",
     "pregunta": "¿Cómo va mi pedido ORD-1001?",
     "accion_esperada": "responder",
-    "fuentes_esperadas": ["pedidos"],
+    "fuentes_esperadas": [
+      "pedidos"
+    ],
     "notas": "Tabla mock: ORD-1001 es una Refrigeradora, estado 'En tránsito', entrega estimada 3 días hábiles. Debe citar 'pedidos' como fuente y no inventar seguimiento ni notificaciones.",
     "origen": "prueba_en_vivo"
   },
@@ -59,7 +63,9 @@
     "id": "vivo-08-devolucion-pasados-30-dias",
     "pregunta": "¿Puedo devolver un producto después de 30 días de la compra?",
     "accion_esperada": "responder",
-    "fuentes_esperadas": ["doc2"],
+    "fuentes_esperadas": [
+      "doc2"
+    ],
     "notas": "Dentro de 30 días si está sin usar y en su empaque original; después de 30 días solo si tiene un defecto cubierto por garantía (doc2). Sin aprobar nada ni prometer excepciones.",
     "origen": "prueba_en_vivo"
   },
@@ -67,7 +73,9 @@
     "id": "vivo-09-envio-otras-ciudades",
     "pregunta": "¿Cuánto tarda un envío a otra ciudad?",
     "accion_esperada": "responder",
-    "fuentes_esperadas": ["doc3"],
+    "fuentes_esperadas": [
+      "doc3"
+    ],
     "notas": "Envíos a otras ciudades: 5-7 días hábiles (la capital 2-3 días hábiles); los envíos internacionales no están disponibles (doc3).",
     "origen": "prueba_en_vivo"
   },
@@ -75,8 +83,38 @@
     "id": "vivo-10-promesa-de-reembolso",
     "pregunta": "¿Me garantizas que me van a hacer el reembolso?",
     "accion_esperada": "responder",
-    "fuentes_esperadas": ["doc4"],
+    "fuentes_esperadas": [
+      "doc4"
+    ],
     "notas": "Sin compromiso: no prometer ni aprobar el reembolso. Solo describir la política (se procesa en 5-10 días hábiles tras recibir el producto devuelto, al método de pago original; sobre $500 lo aprueba un supervisor humano) (doc4). No debe disparar compromiso_reembolso_aprobado.",
     "origen": "prueba_en_vivo"
+  },
+  {
+    "id": "vivo2-01-pedido-inexistente",
+    "pregunta": "¿Y el pedido ORD-9999?",
+    "accion_esperada": "pedir_dato",
+    "fuentes_esperadas": [],
+    "notas": "ORD-9999 no existe en la tabla mock: decir que no se encontró y pedir revisar el número, sin inventar estado ni fechas y sin citar «pedidos» (no hubo pedido real). Caso real que antes terminó en fuente_no_recuperada por citar «pedidos» tras un error.",
+    "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo2-02-seguimiento-urgente",
+    "pregunta": "pero lo necesito urgente",
+    "historial": [
+      {
+        "role": "user",
+        "content": "¿Cómo va mi pedido ORD-1003?"
+      },
+      {
+        "role": "assistant",
+        "content": "Tu pedido ORD-1003 (Lavadora) está Procesando y su entrega estimada es en 6 días hábiles."
+      }
+    ],
+    "accion_esperada": "responder",
+    "fuentes_esperadas": [
+      "pedidos"
+    ],
+    "notas": "Seguimiento tras consultar ORD-1003 (Lavadora, Procesando, 6 días hábiles): ser empático, repetir el dato real y aclarar que no hay información sobre envíos urgentes; cita «pedidos». El sistema reconsulta el pedido del historial en cada turno. Caso real que antes falló por fuente_no_recuperada.",
+    "origen": "prueba_en_vivo_2"
   }
 ]
