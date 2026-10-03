@@ -139,7 +139,7 @@
       "id": "T08",
       "fase": 2,
       "titulo": "Guardrail de entrada determinista",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T02"
@@ -154,8 +154,8 @@
         "Precedencia: si el mensaje mezcla un tema escalable con otro que no lo es, se escala"
       ],
       "verificacion": "python -m pytest tests/test_guardrail_input.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: RECHAZADO 1 vez (BLOQUEANTE: falsos negativos legales con clíticos, corregido) y luego APROBADO. MENOR: test_montos_variantes_extra_falsos_positivos tiene un caso que sí escala (usa un if; mover al test positivo y renombrar); limitaciones documentadas: 'reembolso de 2024' se lee como monto, '$0.800', 'legal' suelto y 'denuncia de robo' escalan (fallo seguro); sin cubrir: 'necesito reembolso: 600' (sin moneda), '$5e3'. Ventanas de 60 caracteres entre empleado y adjetivo. Precedencia: legal > manipulacion > facturacion > queja_trato > reembolso_alto."
     },
     {
       "id": "T09",
