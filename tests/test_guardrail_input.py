@@ -350,3 +350,19 @@ def test_montos_variantes_extra(m):
 )
 def test_montos_variantes_extra_falsos_positivos(m):
     assert not _ev(m).escalar, m
+
+
+def test_mensaje_solo_invisibles_es_vacio():
+    from tiendahogar_agent.guardrail_input import evaluar_entrada
+
+    r = evaluar_entrada("\u200b\u200d\u2060\ufeff\u00a0\x00 \u2028", 500)
+    assert r.escalar is False
+    assert r.motivo == "Sin contenido que evaluar."
+
+
+def test_es_vacio_visible():
+    from tiendahogar_agent.texto import es_vacio_visible
+
+    assert es_vacio_visible("\u200b\ufeff\u00a0\x07")
+    assert es_vacio_visible("")
+    assert not es_vacio_visible("\u200bhola")

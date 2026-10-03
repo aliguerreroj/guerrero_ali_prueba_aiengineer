@@ -214,3 +214,40 @@ def test_log_respuesta_vacia(caplog):
     with caplog.at_level(logging.DEBUG):
         llamar_llm_seguro(FakeLLM([LLMResponse(texto=" ")]), MSGS, Settings())
     assert "llm_respuesta_vacia" in caplog.text
+
+
+# --- menores de seguridad ---------------------------------------------------
+
+INVISIBLES = "\u200b\u200c\u200d\u2060\ufeff\u00a0\x00\x07 \u2028"
+
+
+@pytest.mark.parametrize("resultado", [None, "texto", ["x"], 42])
+def test_tool_resultado_no_dict_falla_cerrado(resultado, caplog):
+    with caplog.at_level(logging.DEBUG):
+        r = revisar_resultado_tool(resultado, trace_id="t")
+    _es_fallo_seguro(r, "tool_error_interno")
+    assert "tipo=" in caplog.text
+
+
+def test_recuperar_seguro_registra_traceback_con_pii_enmascarada(caplog):
+    def _lanzar():
+        raise ValueError(f"mal {PII}")
+
+    class _R:
+        def recuperar(self, consulta):
+            _lanzar()
+
+    with caplog.at_level(logging.DEBUG):
+        recuperar_seguro(_R(), "q", trace_id="t")
+    log = caplog.text
+    assert "Traceback" in log
+    assert "_lanzar" in log
+    assert "ana@correo.com" not in log
+    assert "3001234567" not in log
+    assert "4111 1111 1111 1111" not in log
+
+
+def test_llm_texto_solo_invisibles_es_vacio():
+    llm = FakeLLM([LLMResponse(texto=INVISIBLES)])
+    r = llamar_llm_seguro(llm, MSGS, Settings())
+    _es_fallo_seguro(r, "llm_respuesta_vacia")

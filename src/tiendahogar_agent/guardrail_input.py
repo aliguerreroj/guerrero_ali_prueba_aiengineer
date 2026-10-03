@@ -32,7 +32,7 @@ from pydantic import BaseModel, ConfigDict
 
 from tiendahogar_agent.config import Settings
 from tiendahogar_agent.models import Accion
-from tiendahogar_agent.texto import quitar_tildes
+from tiendahogar_agent.texto import es_vacio_visible, quitar_tildes
 
 CANAL_ESCALAMIENTO = "soporte@tiendahogar.example"
 
@@ -251,7 +251,7 @@ _REGLAS: dict[str, list[tuple[str, re.Pattern[str]]]] = {
 
 def evaluar_entrada(mensaje: str, umbral_reembolso: float) -> ResultadoGuardrail:
     """Evalúa el mensaje del cliente; nunca lanza ante entradas vacías o no textuales."""
-    if not isinstance(mensaje, str) or not mensaje.strip():
+    if not isinstance(mensaje, str) or es_vacio_visible(mensaje):
         return ResultadoGuardrail(escalar=False, categoria="ninguna", motivo="Sin contenido que evaluar.")
     texto = quitar_tildes(mensaje)
     disparadas: list[tuple[Categoria, str, str]] = []

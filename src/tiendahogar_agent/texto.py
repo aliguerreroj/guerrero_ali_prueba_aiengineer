@@ -44,3 +44,11 @@ def normalizar(texto: str | None) -> list[str]:
         return []
     palabras = _PALABRAS.findall(quitar_tildes(texto))
     return [_stemmer.stemWord(p) for p in palabras if p not in STOPWORDS]
+
+
+_CATEGORIAS_INVISIBLES = frozenset({"Cf", "Cc", "Zs", "Zl", "Zp"})
+
+
+def es_vacio_visible(texto: str | None) -> bool:
+    """True si no hay ningún carácter visible (solo espacios, controles o invisibles)."""
+    return all(unicodedata.category(c) in _CATEGORIAS_INVISIBLES for c in (texto or ""))

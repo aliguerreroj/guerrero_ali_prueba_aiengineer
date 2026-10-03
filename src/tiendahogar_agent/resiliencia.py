@@ -16,6 +16,7 @@ T12 toma de `Settings.max_reintentos_llm`) y los adaptadores traducen sus errore
 from __future__ import annotations
 
 import logging
+import traceback
 from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -26,6 +27,7 @@ from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO
 from tiendahogar_agent.models import AgentResponse, LLMResponse
 from tiendahogar_agent.pii import enmascarar_pii
 from tiendahogar_agent.retriever import ResultadoRecuperacion
+from tiendahogar_agent.texto import es_vacio_visible
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +77,14 @@ def _fallar(
     exc: BaseException | None = None,
     detalle: str = "",
 ) -> RespuestaFalloSeguro:
-    """Registra el fallo (PII enmascarada, sin traceback) y devuelve el fallo seguro."""
+    """Registra el fallo con traceback, todo enmascarado, y devuelve el fallo seguro."""
     tipo = type(exc).__name__ if exc is not None else "-"
     mensaje = enmascarar_pii(str(exc) if exc is not None else detalle)
+    if exc is not None and exc.__traceback__ is not None:
+        # El traceback puede contener PII en el texto de la excepción: se enmascara entero.
+        mensaje = enmascarar_pii(
+            "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        )
     logger.error(
         "fallo seguro aplicado=escalar motivo=%s tipo=%s trace_id=%s detalle=%s",
         motivo, tipo, trace_id, mensaje,
@@ -97,7 +104,7 @@ def llamar_llm_seguro(
         respuesta = llm.completar(mensajes, tools=tools, timeout=settings.timeout_llm_s)
     except ErrorLLM as exc:
         return _fallar("llm_error", trace_id, exc)
-    if not (respuesta.texto or "").strip() and not respuesta.llamadas_tools:
+    if es_vacio_visible(respuesta.texto) and not respuesta.llamadas_tools:
         return _fallar("llm_respuesta_vacia", trace_id, detalle="el LLM no devolvió texto ni tools")
     return respuesta
 
@@ -113,9 +120,14 @@ def recuperar_seguro(
 
 
 def revisar_resultado_tool(
-    resultado: dict[str, Any], trace_id: str = ""
+    resultado: Any, trace_id: str = ""
 ) -> RespuestaFalloSeguro | None:
-    """None si el resultado de la tool es usable; fallo seguro si es `error_interno`."""
-    if isinstance(resultado, dict) and resultado.get("error") == "error_interno":
+    """None si el resultado es usable; fallo seguro si no es dict o es `error_interno`."""
+    if not isinstance(resultado, dict):
+        return _fallar(
+            "tool_error_interno", trace_id,
+            detalle=f"resultado de tool no es dict (tipo {type(resultado).__name__})",
+        )
+    if resultado.get("error") == "error_interno":
         return _fallar("tool_error_interno", trace_id, detalle=str(resultado.get("mensaje", "")))
     return None
