@@ -361,7 +361,7 @@
       "id": "T19",
       "fase": 4,
       "titulo": "Runner de evals + calibración del umbral",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "recomendada",
       "depende_de": [
         "T18"
@@ -374,8 +374,8 @@
         "python harness/init.py sin --full nunca llama a la API"
       ],
       "verificacion": "python -m pytest tests/test_evals.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. Runner src/tiendahogar_agent/evals.py (python -m tiendahogar_agent.evals y harness/init.py --full; sin ANTHROPIC_API_KEY se omite con aviso, init sin --full nunca lo ejecuta), matching con alternativas «|», campo `respaldo` en la traza, calibración en calibracion.py. Calibración (15 preguntas en dominio, 25 fuera de dominio): coseno en dominio 0.244/0.553/0.698 (mín/mediana/máx) vs fuera -0.013/0.133/0.414 (margen -0.170, se solapan); BM25 1.596/3.102/5.079 vs 0/0/1.506 (margen +0.089); umbrales NO cambiados (0.5 y 0.3), nota fechada en ADR-004. Eval real ejecutado UNA vez con claude-haiku-4-5-20251001: 37 casos, costo 0.1777 USD (precios sin verificar en vivo), latencia media 1821 ms; caso OK 68 %, acción 78 %, fuentes 81 %, respaldo 8 %. Por categoría (caso OK): escalamiento 100 % (10), manipulacion 100 % (2), fuera_de_alcance 80 % (5), politica 50 % (10), pedido 40 % (5), hecho_critico 40 % (5). Reporte en evals/resultados/2026-10-04-0047-claude-haiku-4-5-20251001.{json,md}. Fallos reales del sistema: (1) Haiku sigue citando soporte@ sin necesidad (vivo2-02, vivo2-06, t18-01) y ADR-008 lo convierte en escalar; (2) respaldo por cifra_sin_sustento en vivo-06 (pedido sin id) y t18-16 (matemáticas: escala con plantilla en vez de responder fuera de alcance); (3) respaldo por hecho_incorrecto en vivo2-08 (lavadora con defecto); (4) vivo3-01 y t18-05 salen pedir_dato cuando el modelo pregunta un dato. Fallos del golden o del matching (no del sistema): t18-04 exige «fecha» y la respuesta correcta dice solo «ya fue entregado»; t18-05 espera citar doc4 y el modelo pide datos; vivo-08 cita además doc1 (fuentes como conjunto exacto); t18-17 no reprodujo el falso positivo conocido (no mencionó la capital). MENOR del revisor: el tope de costo se evalúa tras cada caso; una excepción no controlada pierde el reporte parcial; en vivo-01 no_debe_contener se aflojó para evitar el falso positivo de «no es cierto»; sin escape del «|» literal; ADR-004 lista 4 casos del lado equivocado y el JSON trae 8 filas."
     },
     {
       "id": "T20",

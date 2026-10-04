@@ -112,7 +112,20 @@ def main() -> None:
     ok("pytest")
 
     if full:
-        print("ℹ️  evals aún no implementados")
+        # Evals con el LLM real: solo aquí (nunca sin --full). Sin ANTHROPIC_API_KEY el runner se
+        # omite con aviso y sale con 0; con tope de costo (--max-costo, 2 USD por defecto).
+        r = correr(py, "-m", "tiendahogar_agent.evals")
+        salida = (r.stdout or "").rstrip()
+        if salida:
+            print(salida)
+        if r.returncode != 0:
+            fallo(
+                "los evals terminaron con error o abortaron por el tope de costo",
+                "revisa la salida y el reporte en evals/resultados/; ajusta --max-costo con "
+                "python -m tiendahogar_agent.evals --max-costo N",
+                r.stderr,
+            )
+        ok("evals (python -m tiendahogar_agent.evals)")
     print("🟢 init.py en verde")
 
 

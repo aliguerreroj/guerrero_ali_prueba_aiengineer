@@ -40,6 +40,9 @@ class TrazaTurno:
     tools: list[dict[str, Any]] = field(default_factory=list)
     reglas_fallidas: list[str] = field(default_factory=list)
     reintentos: int = 0
+    # True si el turno se resolvió con una plantilla/mensaje de respaldo (verificación de salida
+    # fallida o fallo seguro), no con un escalamiento redactado por el LLM (T19).
+    respaldo: bool = False
 
     def sumar_uso(self, respuesta: LLMResponse) -> None:
         self.llamadas_llm += 1
@@ -71,6 +74,13 @@ _ACTUAL: contextvars.ContextVar[TrazaTurno | None] = contextvars.ContextVar(
 
 def traza_actual() -> TrazaTurno | None:
     return _ACTUAL.get()
+
+
+def marcar_respaldo() -> None:
+    """Marca el turno en curso como resuelto con una plantilla de respaldo (si hay traza)."""
+    traza = _ACTUAL.get()
+    if traza is not None:
+        traza.respaldo = True
 
 
 @contextlib.contextmanager
@@ -134,6 +144,7 @@ def construir_traza(
         "tools": traza.tools,
         "reglas_fallidas": traza.reglas_fallidas,
         "reintentos": traza.reintentos,
+        "respaldo": traza.respaldo,
         "llamadas_llm": traza.llamadas_llm,
         "tokens_entrada": traza.tokens_entrada,
         "tokens_salida": traza.tokens_salida,

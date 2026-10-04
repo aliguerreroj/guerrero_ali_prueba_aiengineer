@@ -28,9 +28,9 @@ from tiendahogar_agent.dobles import FakeEmbedder, FakeLLM
 from tiendahogar_agent.documentos import FileSystemDocumentSource
 from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO, evaluar_entrada
 from tiendahogar_agent.indice_lexico import IndiceLexico
+from tiendahogar_agent.matching import alternativas, faltantes, normalizar, presentes
 from tiendahogar_agent.orquestador import Orquestador
 from tiendahogar_agent.retriever import Retriever
-from tiendahogar_agent.texto import quitar_tildes
 
 RAIZ = Path(__file__).resolve().parents[1]
 RUTA = RAIZ / "evals" / "golden_set.json"
@@ -92,10 +92,6 @@ def retriever():
         chunks, IndiceLexico(chunks), FakeEmbedder(), InMemoryVectorStore(),
         top_k=3, umbral_bm25=0.5, umbral_semantico=2.0,
     )
-
-
-def _norm(texto: str) -> str:
-    return quitar_tildes(texto)
 
 
 # ------------------------------------------------------------------ esquema
@@ -181,15 +177,18 @@ def test_montos_cubren_umbral_letras_y_formato(casos):
 
 
 def test_listas_de_cadenas_no_vacias_y_normalizables(casos):
+    """Las cadenas admiten alternativas con «|» (matching.py); ninguna puede quedar vacía."""
     for c in casos:
         for campo in ("debe_contener", "no_debe_contener"):
             lista = c[campo]
             assert isinstance(lista, list) and lista, (c["id"], campo)
             for s in lista:
-                assert isinstance(s, str) and _norm(s).strip(), (c["id"], campo)
-            assert len({_norm(s) for s in lista}) == len(lista), (c["id"], campo)
-        # Lo que debe estar no puede estar a la vez prohibido.
-        assert not {_norm(s) for s in c["debe_contener"]} & {_norm(s) for s in c["no_debe_contener"]}
+                assert isinstance(s, str) and alternativas(s), (c["id"], campo)
+            assert len({normalizar(s) for s in lista}) == len(lista), (c["id"], campo)
+        # Lo que debe estar no puede estar a la vez prohibido (ni como alternativa).
+        debe = {a for s in c["debe_contener"] for a in alternativas(s)}
+        no_debe = {a for s in c["no_debe_contener"] for a in alternativas(s)}
+        assert not debe & no_debe, c["id"]
 
 
 def test_no_contiene_secretos(casos):
@@ -229,11 +228,8 @@ def test_orquestador_da_la_accion_y_fuentes_esperadas(retriever, caso):
     assert (r.canal == CANAL_ESCALAMIENTO) == (caso["accion_esperada"] == "escalar")
     if guion is not None:
         assert not llm._cola, "el guion debe consumirse completo"
-    texto = _norm(r.respuesta)
-    for s in caso["debe_contener"]:
-        assert _norm(s) in texto, (caso["id"], s, r.respuesta)
-    for s in caso["no_debe_contener"]:
-        assert _norm(s) not in texto, (caso["id"], s, r.respuesta)
+    assert not faltantes(r.respuesta, caso["debe_contener"]), (caso["id"], r.respuesta)
+    assert not presentes(r.respuesta, caso["no_debe_contener"]), (caso["id"], r.respuesta)
 
 
 @pytest.mark.xfail(

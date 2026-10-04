@@ -18,7 +18,7 @@ precio_salida_por_millon: 5.00
 azure_openai_api_version: "2024-10-21"  # entre comillas: si no, YAML lo lee como fecha
 top_k: 3
 # Relevancia sobre puntajes ORIGINALES (no sobre RRF): chunk relevante si BM25 > umbral_bm25
-# O coseno > umbral_semantico. Ambos son PROVISIONALES hasta T19 (ver ADR-004).
+# O coseno > umbral_semantico. Calibrados en T19 con el embedder real: se mantienen (ver nota del 2026-10-04 en ADR-004).
 umbral_bm25: 0.5
 umbral_semantico: 0.3
 umbral_reembolso: 500

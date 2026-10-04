@@ -59,6 +59,15 @@ def fusion_rrf(rankings: Sequence[Sequence[Hashable]], k: int = RRF_K) -> dict[H
     return scores
 
 
+def chunk_relevante(
+    bm25: float, similitud: float | None, umbral_bm25: float, umbral_semantico: float
+) -> bool:
+    """Regla de ADR-004 sobre puntajes originales (la usan la calibración y los tests)."""
+    return (bm25 > 0 and bm25 > umbral_bm25) or (
+        similitud is not None and similitud > umbral_semantico
+    )
+
+
 def _fuente(chunk: Chunk) -> FuenteChunk:
     titulo = chunk.metadatos.get("titulo")
     return FuenteChunk(doc_id=chunk.doc_id, titulo=str(titulo) if titulo is not None else None)
@@ -120,6 +129,16 @@ class Retriever:
                 continue
             sims[clave] = float(s)
         return sims
+
+    def puntajes(self, consulta: str | None) -> list[tuple[Chunk, float, float | None]]:
+        """(chunk, BM25, coseno|None) de TODOS los chunks, sin umbrales (para calibrar)."""
+        if not consulta or not consulta.strip():
+            return []
+        bm25 = {clave_chunk(c): p for c, p in self._indice.puntuar(consulta)}
+        sims = self._similitudes(consulta)
+        return [
+            (c, bm25.get(clave_chunk(c), 0.0), sims.get(clave_chunk(c))) for c in self._chunks
+        ]
 
     def recuperar(self, consulta: str | None) -> list[ResultadoRecuperacion]:
         if not consulta or not consulta.strip() or not self._chunks:

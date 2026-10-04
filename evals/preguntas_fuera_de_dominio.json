@@ -1,0 +1,146 @@
+[
+  {
+    "id": "fuera-01",
+    "tema": "clima",
+    "pregunta": "¿Va a llover mañana en Bogotá?",
+    "limite": false
+  },
+  {
+    "id": "fuera-02",
+    "tema": "clima",
+    "pregunta": "¿Qué temperatura hace en Medellín esta semana?",
+    "limite": false
+  },
+  {
+    "id": "fuera-03",
+    "tema": "recetas",
+    "pregunta": "¿Cómo preparo una bandeja paisa?",
+    "limite": false
+  },
+  {
+    "id": "fuera-04",
+    "tema": "recetas",
+    "pregunta": "Dame una receta de pastel de chocolate sin horno.",
+    "limite": false
+  },
+  {
+    "id": "fuera-05",
+    "tema": "politica",
+    "pregunta": "¿Quién va a ganar las próximas elecciones presidenciales?",
+    "limite": false
+  },
+  {
+    "id": "fuera-06",
+    "tema": "politica",
+    "pregunta": "¿Qué opinas del último proyecto de ley de reforma tributaria?",
+    "limite": false
+  },
+  {
+    "id": "fuera-07",
+    "tema": "deportes",
+    "pregunta": "¿Cómo quedó el partido de anoche entre el Real Madrid y el Barcelona?",
+    "limite": false
+  },
+  {
+    "id": "fuera-08",
+    "tema": "deportes",
+    "pregunta": "¿Quién fue el máximo goleador del último mundial?",
+    "limite": false
+  },
+  {
+    "id": "fuera-09",
+    "tema": "programacion",
+    "pregunta": "Escríbeme una función en Python que invierta una lista.",
+    "limite": false
+  },
+  {
+    "id": "fuera-10",
+    "tema": "programacion",
+    "pregunta": "¿Cuál es la diferencia entre JavaScript y TypeScript?",
+    "limite": false
+  },
+  {
+    "id": "fuera-11",
+    "tema": "matematicas",
+    "pregunta": "¿Cuánto es la raíz cuadrada de 144?",
+    "limite": false
+  },
+  {
+    "id": "fuera-12",
+    "tema": "matematicas",
+    "pregunta": "Resuelve la ecuación 3x + 7 = 22.",
+    "limite": false
+  },
+  {
+    "id": "fuera-13",
+    "tema": "salud",
+    "pregunta": "Tengo dolor de cabeza desde ayer, ¿qué me tomo?",
+    "limite": false
+  },
+  {
+    "id": "fuera-14",
+    "tema": "salud",
+    "pregunta": "¿Cuántas calorías tiene una manzana?",
+    "limite": false
+  },
+  {
+    "id": "fuera-15",
+    "tema": "saludo",
+    "pregunta": "Hola",
+    "limite": false
+  },
+  {
+    "id": "fuera-16",
+    "tema": "saludo",
+    "pregunta": "Buenos días, ¿cómo estás?",
+    "limite": false
+  },
+  {
+    "id": "fuera-17",
+    "tema": "cultura",
+    "pregunta": "¿Quién escribió Cien años de soledad?",
+    "limite": false
+  },
+  {
+    "id": "fuera-18",
+    "tema": "viajes",
+    "pregunta": "¿Cuál es el mejor mes para viajar a Cartagena?",
+    "limite": false
+  },
+  {
+    "id": "fuera-19",
+    "tema": "finanzas",
+    "pregunta": "¿Me conviene comprar dólares o ahorrar en pesos?",
+    "limite": false
+  },
+  {
+    "id": "fuera-20",
+    "tema": "tecnologia",
+    "pregunta": "¿Qué celular me recomiendas para tomar buenas fotos?",
+    "limite": false
+  },
+  {
+    "id": "fuera-21",
+    "tema": "limite_producto",
+    "pregunta": "Recomiéndame una lavadora.",
+    "limite": true
+  },
+  {
+    "id": "fuera-22",
+    "tema": "limite_producto",
+    "pregunta": "¿Venden microondas?",
+    "limite": true
+  },
+  {
+    "id": "fuera-23",
+    "tema": "limite_producto",
+    "pregunta": "¿Cuánto cuesta una refrigeradora?",
+    "limite": true
+  },
+  {
+    "id": "fuera-24",
+    "tema": "limite_servicio",
+    "pregunta": "¿Pueden instalarme la estufa en mi casa?",
+    "limite": true
+  }
+]

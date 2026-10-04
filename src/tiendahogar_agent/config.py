@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     llm_provider: Literal["fake", "anthropic", "azure"] = "fake"
     llm_model: str = "claude-haiku-4-5-20251001"
     top_k: int = 3
-    # Relevancia (T07): se aplica sobre los puntajes ORIGINALES, no sobre el RRF. PROVISIONALES (T19).
+    # Relevancia (T07): se aplica sobre los puntajes ORIGINALES, no sobre el RRF. Calibrados en T19 (ADR-004).
     umbral_bm25: float = 0.5
     umbral_semantico: float = 0.3
     umbral_reembolso: float = 500

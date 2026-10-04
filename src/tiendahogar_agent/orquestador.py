@@ -99,7 +99,13 @@ from tiendahogar_agent.resiliencia import (
 )
 from tiendahogar_agent.retriever import Retriever
 from tiendahogar_agent.texto import es_vacio_visible, quitar_tildes
-from tiendahogar_agent.tracing import LLMContado, construir_traza, traza_actual, traza_de_turno
+from tiendahogar_agent.tracing import (
+    LLMContado,
+    construir_traza,
+    marcar_respaldo,
+    traza_actual,
+    traza_de_turno,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +371,7 @@ class Orquestador:
                     trace_id, ",".join(veredicto.reglas_fallidas),
                 )
         if texto is None:
+            marcar_respaldo()
             texto = PLANTILLAS_ESCALAMIENTO.get(decision.categoria, _MENSAJE_ESCALAMIENTO_GENERICO)
         return AgentResponse(
             respuesta=texto, accion="escalar", canal=CANAL_ESCALAMIENTO, trace_id=trace_id
@@ -526,6 +533,7 @@ class Orquestador:
             and not _PATRON_PEDIDO.search(mensaje)
         ):
             logger.warning("texto suelto sin evidencia: fuera de alcance trace_id=%s", trace_id)
+            marcar_respaldo()
             return AgentResponse(
                 respuesta=MENSAJE_FUERA_DE_ALCANCE, accion="responder", trace_id=trace_id
             )
@@ -626,6 +634,7 @@ class Orquestador:
         if reintento_hecho_usado and R_HECHO in veredicto.reglas_fallidas:
             logger.warning("reintento por hecho_incorrecto no resolvio trace_id=%s", trace_id)
         if not veredicto.ok:
+            marcar_respaldo()
             logger.warning(
                 "verificacion de salida fallida trace_id=%s reglas=%s",
                 trace_id, ",".join(veredicto.reglas_fallidas),

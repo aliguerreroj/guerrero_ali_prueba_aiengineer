@@ -28,6 +28,7 @@ from tiendahogar_agent.models import AgentResponse, LLMResponse
 from tiendahogar_agent.pii import enmascarar_pii
 from tiendahogar_agent.retriever import ResultadoRecuperacion
 from tiendahogar_agent.texto import es_vacio_visible
+from tiendahogar_agent.tracing import marcar_respaldo
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,7 @@ def fallar(
         mensaje = enmascarar_pii(
             "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
         )
+    marcar_respaldo()  # T19: el turno se resuelve con el mensaje de fallo seguro
     logger.error(
         "fallo seguro aplicado=escalar motivo=%s tipo=%s trace_id=%s detalle=%s",
         motivo, tipo, trace_id, mensaje,

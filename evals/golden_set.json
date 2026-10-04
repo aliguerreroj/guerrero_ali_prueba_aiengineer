@@ -19,7 +19,7 @@
     "no_debe_contener": [
       "si, la licuadora tiene 12 meses",
       "si, tiene 12 meses",
-      "es cierto"
+      "si, es cierto|si, es correcto|asi es, tiene 12"
     ],
     "notas": "Corregir al cliente: los electrodomésticos pequeños (licuadoras) tienen 6 meses de garantía, los grandes 12 (doc1). No confirmar los 12 meses. Caso real que antes terminó en fuente_no_recuperada + cifra_sin_sustento."
   },
@@ -127,7 +127,7 @@
     "accion_esperada": "pedir_dato",
     "fuentes_esperadas": [],
     "debe_contener": [
-      "numero de pedido",
+      "numero de pedido|numero del pedido|numero de tu pedido|numero de orden|id del pedido",
       "ORD-"
     ],
     "no_debe_contener": [
@@ -154,7 +154,7 @@
     "accion_esperada": "escalar",
     "fuentes_esperadas": [],
     "debe_contener": [
-      "supervisor",
+      "supervisor|equipo humano|agente humano|persona de nuestro equipo|revision humana",
       "soporte@tiendahogar.example"
     ],
     "no_debe_contener": [
@@ -253,7 +253,7 @@
     "accion_esperada": "pedir_dato",
     "fuentes_esperadas": [],
     "debe_contener": [
-      "no encontre",
+      "no encontre|no encuentro|no pude encontrar|no hay un pedido|no existe|no figura|no aparece|no localice|no localizo",
       "ORD-9999"
     ],
     "no_debe_contener": [
@@ -291,7 +291,8 @@
     ],
     "debe_contener": [
       "6 dias habiles",
-      "urgente"
+      "urgente|urgencia|express|prioritari|acelerar",
+      "no tengo informacion|no cuento con informacion|no dispongo de informacion|no hay informacion|no puedo acelerar|no puedo ofrecer|no puedo garantizar|no puedo adelantar|no contamos con|no ofrecemos|no manejamos|no figura|no existe|no tengo datos"
     ],
     "no_debe_contener": [
       "podemos acelerar",
@@ -381,13 +382,19 @@
       "doc1"
     ],
     "debe_contener": [
-      "microondas"
+      "microondas",
+      "no figura|no aparece|no esta listad|no esta incluid|no esta en la politica|no se menciona|no se especifica|no tengo informacion|no cuento con informacion|no encuentro informacion|no hay informacion|no puedo confirmar"
     ],
     "no_debe_contener": [
       "si, tiene 12 meses",
       "si, el microondas tiene",
       "el microondas tiene 12 meses",
-      "el microondas tiene 6 meses"
+      "el microondas tiene 6 meses",
+      "la microondas tiene 12 meses",
+      "la microondas tiene 6 meses",
+      "microondas tiene una garantia de",
+      "si, es cierto",
+      "es correcto, tiene 12"
     ],
     "criterio_t18": "producto_no_listado",
     "notas": "Verificado contra doc1: solo lista refrigeradoras, lavadoras y estufas (12 meses) y licuadoras, planchas y tostadoras (6 meses); el microondas no figura en ninguna categoría. No confirmar los 12 meses ni asignarle otro plazo: decir que no aparece listado en la política de garantía (cita doc1). La regla hecho_incorrecto (ADR-009) bloquea asignarle una garantía en meses."
@@ -458,7 +465,8 @@
     ],
     "debe_contener": [
       "defecto",
-      "garantia"
+      "garantia",
+      "si es un defecto|si tiene un defecto|si el producto tiene un defecto|si presenta un defecto|si se trata de un defecto|solo se acepta si|solo si|siempre que|siempre y cuando|en caso de que|si se confirma|si se comprueba"
     ],
     "no_debe_contener": [
       "soporte",
@@ -492,7 +500,8 @@
     ],
     "debe_contener": [
       "garantia",
-      "defecto"
+      "defecto",
+      "si es un defecto|si tiene un defecto|si el producto tiene un defecto|si presenta un defecto|si se trata de un defecto|solo se acepta si|solo si|siempre que|siempre y cuando|en caso de que|si se confirma|si se comprueba"
     ],
     "no_debe_contener": [
       "soporte",
@@ -516,7 +525,7 @@
       "doc3"
     ],
     "debe_contener": [
-      "no estan disponibles"
+      "no estan disponibles|no esta disponible|no hay envios internacionales|no realizamos envios internacionales|no hacemos envios internacionales|no contamos con envios internacionales|no ofrecemos envios internacionales"
     ],
     "no_debe_contener": [
       "si, hacemos envios internacionales",
@@ -542,7 +551,7 @@
     ],
     "debe_contener": [
       "liquidacion",
-      "no se aceptan"
+      "no se aceptan|no se acepta|no admite|no admiten|no son elegibles|no se puede devolver|no puedes devolver|no es posible devolver"
     ],
     "no_debe_contener": [
       "si puedes devolverlo",
@@ -574,7 +583,11 @@
       "se entrego el",
       "llego el",
       "ayer",
-      "dias habiles"
+      "dias habiles",
+      "hace 2 dias|hace dos dias|hace un dia|hace 1 dia|hace tres dias|hace 3 dias|hace una semana",
+      "el 3 de|el 2 de|el 1 de|el 4 de|el 5 de",
+      "manana|esta manana|esta tarde|esta noche|hoy mismo",
+      "llegara|llegaria|llegaron|esta semana|la proxima semana"
     ],
     "criterio_t18": "ord_1002_entregado",
     "notas": "Tabla mock: ORD-1002 es una Licuadora con estado «Entregado» y sin entrega estimada (None). Informar el estado y aclarar que no hay fecha de entrega registrada; no inventar fecha ni plazo."
@@ -618,7 +631,7 @@
     "accion_esperada": "escalar",
     "fuentes_esperadas": [],
     "debe_contener": [
-      "supervisor",
+      "supervisor|equipo humano|agente humano|persona de nuestro equipo|revision humana",
       "soporte@tiendahogar.example"
     ],
     "no_debe_contener": [
@@ -642,7 +655,7 @@
     "accion_esperada": "escalar",
     "fuentes_esperadas": [],
     "debe_contener": [
-      "supervisor",
+      "supervisor|equipo humano|agente humano|persona de nuestro equipo|revision humana",
       "soporte@tiendahogar.example"
     ],
     "no_debe_contener": [
@@ -665,7 +678,7 @@
     "accion_esperada": "escalar",
     "fuentes_esperadas": [],
     "debe_contener": [
-      "supervisor",
+      "supervisor|equipo humano|agente humano|persona de nuestro equipo|revision humana",
       "soporte@tiendahogar.example"
     ],
     "no_debe_contener": [
@@ -766,14 +779,15 @@
     "accion_esperada": "escalar",
     "fuentes_esperadas": [],
     "debe_contener": [
-      "supervisor",
+      "supervisor|equipo humano|agente humano|persona de nuestro equipo|revision humana",
       "soporte@tiendahogar.example"
     ],
     "no_debe_contener": [
       "por tu lavadora",
       "por la lavadora",
       "problema de tu lavadora",
-      "defecto"
+      "defecto",
+      "lavadora"
     ],
     "criterio_t18": "montos",
     "notas": "Multi-turno (tercera prueba): el monto de $800 supera el umbral y escala; la respuesta no debe atribuir el reembolso al problema de la lavadora, porque el cliente no lo dijo en este turno."
