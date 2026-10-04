@@ -22,6 +22,7 @@ from tiendahogar_agent.pedidos import OrderRepositoryMock
 from tiendahogar_agent.retriever import Retriever
 
 DOCS = Path(__file__).resolve().parents[1] / "data" / "docs"
+GOLDEN = Path(__file__).resolve().parents[1] / "evals" / "golden_set.json"
 _contador = itertools.count(1)
 
 HIST_1003 = [
@@ -45,6 +46,10 @@ RESP_LAVADORA = (
     "garantía, y las lavadoras tienen 12 meses de garantía desde la fecha de compra."
 )
 RESP_NO_EXISTE = "No encontré un pedido con el número ORD-9999. ¿Puedes revisar el número?"
+
+
+def _golden():
+    return json.loads(GOLDEN.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(autouse=True)
@@ -221,9 +226,7 @@ def test_fallo_del_repositorio_en_la_reconsulta_es_fallo_seguro(retriever):
 
 # ------------------------------------------------------------------ golden
 def test_golden_de_la_segunda_prueba_se_cumple_con_fakellm(retriever):
-    casos = json.loads(
-        (Path(__file__).parent / "data" / "golden_prueba_en_vivo.json").read_text(encoding="utf-8")
-    )
+    casos = _golden()
     nuevos = {c["id"]: c for c in casos if c["origen"] == "prueba_en_vivo_2"}
     guiones = {
         "vivo2-01-pedido-inexistente": _responder(RESP_NO_EXISTE, ["pedidos"]),
@@ -250,23 +253,20 @@ def test_golden_de_la_segunda_prueba_se_cumple_con_fakellm(retriever):
     assert set(nuevos) == set(guiones)
     for id_caso, caso in nuevos.items():
         orq, _ = _orq(retriever, guiones[id_caso])
-        r = orq.procesar(caso["pregunta"], historial=caso.get("historial"))
+        r = orq.procesar(caso["mensajes"][-1]["content"], historial=caso["mensajes"][:-1] or None)
         assert r.accion == caso["accion_esperada"], id_caso
         assert r.fuentes == caso["fuentes_esperadas"], id_caso
 
 
 # ------------------------------------------------------------------ 3.ª prueba: soporte sin necesidad
 def test_tercera_prueba_lavadora_condicional_sigue_por_responder(retriever):
-    casos = json.loads(
-        (Path(__file__).parent / "data" / "golden_prueba_en_vivo.json").read_text(encoding="utf-8")
-    )
-    caso = next(c for c in casos if c["id"] == "vivo3-01-lavadora-defecto-condicional")
+    caso = next(c for c in _golden() if c["id"] == "vivo3-01-lavadora-defecto-condicional")
     texto = (
         "Entiendo la molestia. Si es un defecto cubierto por garantía, puedes devolverla aunque "
         "hayan pasado los 30 días; las lavadoras tienen 12 meses de garantía."
     )
     orq, _ = _orq(retriever, _responder(texto, ["doc1", "doc2"]))
-    r = orq.procesar(caso["pregunta"])
+    r = orq.procesar(caso["mensajes"][-1]["content"])
     assert r.accion == "responder" and r.fuentes == ["doc1", "doc2"] and r.canal is None
 
 

@@ -1,19 +1,18 @@
-"""Valida solo el ESQUEMA del golden set de la prueba en vivo (no que el agente lo cumpla; eso es T18)."""
+"""Regresiones de las pruebas en vivo dentro del golden set unificado (`evals/golden_set.json`).
+
+El esquema completo del golden lo valida `test_golden_set.py`; aquí se conserva lo propio de los
+19 casos migrados de las pruebas en vivo (ids, orígenes y quejas de trato por reglas).
+"""
 
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import pytest
 
-RUTA = Path(__file__).parent / "data" / "golden_prueba_en_vivo.json"
-CAMPOS = {"id", "pregunta", "accion_esperada", "fuentes_esperadas", "notas", "origen"}
-CAMPOS_OPCIONALES = {"historial"}
-ORIGENES = {"prueba_en_vivo", "prueba_en_vivo_2", "prueba_en_vivo_3"}
-ACCIONES = {"responder", "escalar", "pedir_dato"}
-FUENTES_VALIDAS = {"doc1", "doc2", "doc3", "doc4", "doc5", "pedidos"}
+RUTA = Path(__file__).resolve().parents[1] / "evals" / "golden_set.json"
+ORIGENES = {"prueba_en_vivo": 10, "prueba_en_vivo_2": 8, "prueba_en_vivo_3": 1}
 
 
 @pytest.fixture(scope="module")
@@ -21,39 +20,24 @@ def casos():
     return json.loads(RUTA.read_text(encoding="utf-8"))
 
 
-def test_hay_diecinueve_casos_con_ids_unicos(casos):
-    assert isinstance(casos, list) and len(casos) == 19
-    assert len({c["id"] for c in casos}) == 19
-    assert sum(c["origen"] == "prueba_en_vivo" for c in casos) == 10
+def test_los_diecinueve_casos_migrados_conservan_ids_y_origen(casos):
+    vivos = [c for c in casos if c["origen"].startswith("prueba_en_vivo")]
+    assert len(vivos) == 19 and len({c["id"] for c in vivos}) == 19
+    for origen, cantidad in ORIGENES.items():
+        assert sum(c["origen"] == origen for c in vivos) == cantidad
+    assert all(c["id"].startswith("vivo") for c in vivos)
 
 
-def test_cada_caso_tiene_los_campos_y_tipos_correctos(casos):
+def test_los_casos_migrados_tienen_pregunta_final_del_usuario(casos):
     for c in casos:
-        assert CAMPOS <= set(c) <= CAMPOS | CAMPOS_OPCIONALES, c.get("id")
-        for t in c.get("historial", []):
-            assert set(t) == {"role", "content"} and t["role"] in ("user", "assistant"), c["id"]
-            assert isinstance(t["content"], str) and t["content"].strip(), c["id"]
-        for campo in ("id", "pregunta", "notas"):
-            assert isinstance(c[campo], str) and c[campo].strip(), (c["id"], campo)
-        assert c["origen"] in ORIGENES, c["id"]
-        assert c["accion_esperada"] in ACCIONES, c["id"]
-        assert isinstance(c["fuentes_esperadas"], list), c["id"]
-        assert set(c["fuentes_esperadas"]) <= FUENTES_VALIDAS, c["id"]
+        if c["origen"].startswith("prueba_en_vivo"):
+            assert c["mensajes"][-1]["role"] == "user" and c["mensajes"][-1]["content"].strip()
 
 
-def test_coherencia_entre_accion_y_fuentes(casos):
-    for c in casos:
-        if c["accion_esperada"] in ("escalar", "pedir_dato"):
-            assert c["fuentes_esperadas"] == [], c["id"]
-
-
-def test_cubre_las_tres_acciones(casos):
-    assert {c["accion_esperada"] for c in casos} == ACCIONES
-
-
-def test_no_contiene_secretos(casos):
-    texto = json.dumps(casos, ensure_ascii=False)
-    assert not re.search(r"sk-|api[_-]?key", texto, re.IGNORECASE)
+def test_el_seguimiento_urgente_conserva_su_historial(casos):
+    caso = next(c for c in casos if c["id"] == "vivo2-02-seguimiento-urgente")
+    assert [m["role"] for m in caso["mensajes"]] == ["user", "assistant", "user"]
+    assert "ORD-1003" in caso["mensajes"][0]["content"]
 
 
 @pytest.mark.parametrize("id_caso", ["vivo-03-queja-trato-empleado", "vivo-04-queja-trato-vendedor"])
@@ -62,5 +46,5 @@ def test_quejas_de_trato_escalan_por_reglas_sin_llm(casos, id_caso):
     from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO, evaluar_entrada
 
     caso = next(c for c in casos if c["id"] == id_caso)
-    r = evaluar_entrada(caso["pregunta"], 500)
+    r = evaluar_entrada(caso["mensajes"][-1]["content"], 500)
     assert r.escalar and r.categoria == "queja_trato" and r.canal == CANAL_ESCALAMIENTO

@@ -337,7 +337,7 @@
       "id": "T18",
       "fase": 4,
       "titulo": "Golden set de casos trampa",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "recomendada",
       "depende_de": [
         "T14"
@@ -354,8 +354,8 @@
         "Se mantienen: pedido inexistente y prompt injection"
       ],
       "verificacion": "python -m pytest tests/test_golden_set.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. Golden unificado en evals/golden_set.json: 37 casos (19 migrados con ids y origen intactos + 18 nuevos t18-01..18), 4 multi-turno, 6 categorías y 9 criterios cubiertos; se eliminó tests/data/golden_prueba_en_vivo.json y los tests de regresión leen el nuevo archivo sin perder aserciones. Guiones FakeLLM en tests/golden_guiones.py: validan el sistema (acción, fuentes, verificador) y la coherencia del guion con debe_contener/no_debe_contener, NO al LLM real. Hallazgo real: falso positivo de T10/ADR-009 con la frase natural «si recibes tu pedido en la capital, tienes 30 días para devolverlo» (asocia 30 días con capital, se bloquea por hecho_incorrecto, reintenta y escala); queda como xfail(strict) en t18-17 y NO se corrigió (fuera del alcance de T18); con LLM real t18-17 puede salir escalado. MENOR: subcadenas frágiles ante paráfrasis del LLM real (vivo-06 «numero de pedido», vivo2-01 «no encontre», t18-02 «no estan disponibles», t18-03 «no se aceptan») y el esquema no admite alternativas; debe_contener débil en vivo2-06, t18-04 (no cubre fechas inventadas), t18-01, vivo3-01 y vivo2-02; t18-12 evadible con «reembolso de tu lavadora»; t18-10 mezcla inyección con monto alto y no aísla la regla; t18-09 fija el comportamiento actual (escalar todo) y no el ideal; fuera de alcance sin casos límite («recomiéndame una lavadora», saludo); el xfail no comprueba que la causa sea hecho_incorrecto."
     },
     {
       "id": "T19",
