@@ -11,7 +11,7 @@ import pytest
 RUTA = Path(__file__).parent / "data" / "golden_prueba_en_vivo.json"
 CAMPOS = {"id", "pregunta", "accion_esperada", "fuentes_esperadas", "notas", "origen"}
 CAMPOS_OPCIONALES = {"historial"}
-ORIGENES = {"prueba_en_vivo", "prueba_en_vivo_2"}
+ORIGENES = {"prueba_en_vivo", "prueba_en_vivo_2", "prueba_en_vivo_3"}
 ACCIONES = {"responder", "escalar", "pedir_dato"}
 FUENTES_VALIDAS = {"doc1", "doc2", "doc3", "doc4", "doc5", "pedidos"}
 
@@ -21,9 +21,9 @@ def casos():
     return json.loads(RUTA.read_text(encoding="utf-8"))
 
 
-def test_hay_dieciocho_casos_con_ids_unicos(casos):
-    assert isinstance(casos, list) and len(casos) == 18
-    assert len({c["id"] for c in casos}) == 18
+def test_hay_diecinueve_casos_con_ids_unicos(casos):
+    assert isinstance(casos, list) and len(casos) == 19
+    assert len({c["id"] for c in casos}) == 19
     assert sum(c["origen"] == "prueba_en_vivo" for c in casos) == 10
 
 

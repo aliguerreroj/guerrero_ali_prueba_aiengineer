@@ -292,3 +292,41 @@ def test_prompts_prohiben_relleno_condescendiente_y_promesas_de_tiempo():
         assert "relleno condescendiente" in texto
         assert "ten paciencia" in texto  # citado como ejemplo prohibido
         assert "promesas de tiempo" in texto
+
+
+def test_prompt_restringe_canal_de_soporte_condicionales_y_contexto():
+    texto = cargar_prompt_sistema()
+    lineas = {l.lower().split(":")[0]: l.lower() for l in texto.splitlines() if l.startswith("- ")}
+    canal = lineas["- canal de soporte"]
+    for fragmento in [
+        "solo cuando el cliente pregunta por los canales", "escalamientos que redacta el sistema",
+        "nunca lo uses como salida genérica", "verificar tu cuenta", "no existe",
+        "envío urgente", "sin remitir a soporte",
+    ]:
+        assert fragmento in canal, fragmento
+    assert CANAL_ESCALAMIENTO in canal
+    cond = lineas["- condiciones no confirmadas"]
+    for fragmento in ["condicional", "si es un defecto de fábrica, puedes devolverla",
+                      "como tiene un defecto de fábrica"]:
+        assert fragmento in cond, fragmento
+    ctx = lineas["- contexto de turnos anteriores"]
+    for fragmento in ["solicitud nueva", "solo con lo que el cliente dijo", "reembolso"]:
+        assert fragmento in ctx, fragmento
+
+
+def test_prompt_sin_instrucciones_contradictorias_sobre_el_canal():
+    """Todo «ofrece/ofrecer ... {canal}» debe llevar su restricción en la misma línea."""
+    texto = cargar_prompt_sistema()
+    lineas = [l.lower() for l in texto.splitlines()]
+    restriccion = ("sin sustento", "solo cuando", "solo en los casos", "no aplica", "nunca")
+    with_canal = [l for l in lineas if CANAL_ESCALAMIENTO in l and re.search(r"ofrece|ofrecer", l)]
+    assert with_canal
+    for l in with_canal:
+        assert any(r in l for r in restriccion), l
+    assert "otro canal" not in texto.lower()
+    # los pasajes que antes contradecían mencionan la exclusión del pedido inexistente/dato faltante
+    for ancla in ("qué información puedes usar", "lo que nunca debes hacer"):
+        i = next(k for k, l in enumerate(lineas) if l.startswith("# " + ancla))
+        j = next((k for k in range(i + 1, len(lineas)) if lineas[k].startswith("# ")), len(lineas))
+        bloque = " ".join(lineas[i:j])
+        assert "pedido inexistente" in bloque, ancla

@@ -140,8 +140,7 @@
     "fuentes_esperadas": [
       "doc5"
     ],
-    "notas": "Consulta informativa sobre canales: se informa el correo de soporte que indica doc5 y se mantiene accion=responder (el canal se informa, no se deriva un caso; excepción de ADR-008). Sin canal estructurado en la respuesta."
-    ,
+    "notas": "Consulta informativa sobre canales: se informa el correo de soporte que indica doc5 y se mantiene accion=responder (el canal se informa, no se deriva un caso; excepción de ADR-008). Sin canal estructurado en la respuesta.",
     "origen": "prueba_en_vivo_2"
   },
   {
@@ -174,5 +173,16 @@
     ],
     "notas": "Verificado contra doc2: las devoluciones después de 30 días solo se aceptan si el producto tiene un defecto cubierto por garantía; y doc1: las lavadoras (electrodomésticos grandes) tienen 12 meses de garantía desde la compra, que cubre defectos de fábrica. Responder que sí aplica la regla de defecto cubierto por garantía, citando doc1 y doc2, sin derivar a soporte ni mencionar revisión u otros pasos que no estén en los documentos. No debe disparar hecho_incorrecto (30 días, 12 meses, lavadora).",
     "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo3-01-lavadora-defecto-condicional",
+    "pregunta": "Mi lavadora no funciona bien, ¿puedo devolverla?",
+    "accion_esperada": "responder",
+    "fuentes_esperadas": [
+      "doc1",
+      "doc2"
+    ],
+    "notas": "Tercera prueba en vivo: el cliente no confirmó un defecto de fábrica, así que la condición va en condicional («si es un defecto cubierto por garantía, puedes devolverla»), sin mencionar soporte ni cuenta. Citar doc1 y doc2. El guion de FakeLLM solo confirma el camino esperado; el prompt se valida en vivo.",
+    "origen": "prueba_en_vivo_3"
   }
 ]

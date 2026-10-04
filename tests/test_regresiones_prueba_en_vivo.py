@@ -253,3 +253,31 @@ def test_golden_de_la_segunda_prueba_se_cumple_con_fakellm(retriever):
         r = orq.procesar(caso["pregunta"], historial=caso.get("historial"))
         assert r.accion == caso["accion_esperada"], id_caso
         assert r.fuentes == caso["fuentes_esperadas"], id_caso
+
+
+# ------------------------------------------------------------------ 3.ª prueba: soporte sin necesidad
+def test_tercera_prueba_lavadora_condicional_sigue_por_responder(retriever):
+    casos = json.loads(
+        (Path(__file__).parent / "data" / "golden_prueba_en_vivo.json").read_text(encoding="utf-8")
+    )
+    caso = next(c for c in casos if c["id"] == "vivo3-01-lavadora-defecto-condicional")
+    texto = (
+        "Entiendo la molestia. Si es un defecto cubierto por garantía, puedes devolverla aunque "
+        "hayan pasado los 30 días; las lavadoras tienen 12 meses de garantía."
+    )
+    orq, _ = _orq(retriever, _responder(texto, ["doc1", "doc2"]))
+    r = orq.procesar(caso["pregunta"])
+    assert r.accion == "responder" and r.fuentes == ["doc1", "doc2"] and r.canal is None
+
+
+def test_pedido_inexistente_bien_formado_pide_dato_sin_soporte(retriever):
+    orq, _ = _orq(retriever, _responder(RESP_NO_EXISTE, [], accion_sugerida="pedir_dato"))
+    r = orq.procesar("¿Y el pedido ORD-9999?")
+    assert r.accion == "pedir_dato" and "soporte" not in r.respuesta.lower()
+
+
+def test_adr008_sigue_escalando_si_cita_soporte_fuera_de_pregunta_de_canal(retriever):
+    texto = "No encontré ORD-9999. Escribe a soporte@tiendahogar.example para verificar tu cuenta."
+    orq, _ = _orq(retriever, _responder(texto, []))
+    r = orq.procesar("¿Y el pedido ORD-9999?")
+    assert r.accion == "escalar"  # ADR-008 intacto: por eso el prompt prohíbe esa salida genérica
