@@ -4,7 +4,7 @@
 - Fecha: 2026-10-04
 
 ## Contexto
-Los 5 documentos de `data/docs/` son muy cortos: pesan 1408 bytes en total y ninguno pasa de 350 bytes (`settings.yaml` los cifra en ~200-330 caracteres). Trocearlos no aporta nada y rompería frases que el agente cita tal cual. Aun así, el sistema no debe asumir que los documentos serán siempre así de cortos.
+Los 5 documentos de `data/docs/` son muy cortos: pesan 1408 bytes en total y ninguno pasa de 350 bytes (medidos entre 166 y 335 caracteres; `settings.yaml` los cifra, de forma aproximada, en ~200-330). Trocearlos no aporta nada y rompería frases que el agente cita tal cual. Aun así, el sistema no debe asumir que los documentos serán siempre así de cortos.
 
 ## Decisión
 `documentos.trocear` ofrece cuatro estrategias, elegidas por `Settings.chunk_strategy` (`settings.yaml`, por defecto `auto`):

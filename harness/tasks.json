@@ -483,7 +483,7 @@
       "id": "T26",
       "fase": 6,
       "titulo": "SUBMISSION.md según plantilla",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T25"
@@ -494,8 +494,8 @@
         "Mapeo a producción cubre Foundry, Databricks/Unity Catalog, Apigee y Kafka"
       ],
       "verificacion": "python harness/init.py",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO. Menores corregidos: rango de tamaño de documentos, ADR-004 desfasado sobre lista vacía, subtítulo y recuento de commits. Pendiente: el humano confirma la estimación de tiempo; el diagrama Mermaid se revisó a mano, no con herramienta."
     },
     {
       "id": "T27",

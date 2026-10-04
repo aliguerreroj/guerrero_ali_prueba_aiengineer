@@ -37,7 +37,7 @@ ADR-003 hablaba de un umbral tras la fusión RRF. Eso no funciona: el puntaje RR
 - Exigir ambas señales (Y lógico): perdería paráfrasis como la del dinero.
 
 ## Consecuencias
-- Positivas: «lista vacía» es una señal fiable de falta de sustento: el orquestador escala a un humano o pide un dato, nunca inventa respuesta. Los puntajes originales quedan en las trazas.
+- Positivas: «lista vacía» es una señal fiable de falta de sustento. El orquestador no escala solo por tener la lista vacía: el contexto indica al LLM que no hay documentos relevantes, el sistema acepta un `escalar` por ser el lado seguro, y la verificación de salida rechaza cifras o fuentes sin sustento (corregido el 2026-10-04: este ADR decía antes que el orquestador escalaba o pedía un dato directamente). Los puntajes originales quedan en las trazas.
 - Negativas: dos umbrales que calibrar (T19); con solo 5 documentos y 6 consultas de observación el margen del umbral semántico es estrecho; el modo degradado pierde las paráfrasis.
 - Respuesta a la pregunta de umbrales del entregable: los umbrales (BM25 0.5, coseno 0.3) se eligieron con los puntajes originales observados sobre los documentos reales, entre el peor acierto en dominio y el mejor puntaje fuera de dominio, y quedan marcados como provisionales hasta la calibración de T19.
 
