@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -88,7 +89,7 @@ from tiendahogar_agent.prompts import (
     definicion_tool_consultar_pedido,
     definicion_tool_responder,
 )
-from tiendahogar_agent.puertos import LLMClient, OrderRepository
+from tiendahogar_agent.puertos import LLMClient, OrderRepository, TraceSink
 from tiendahogar_agent.resiliencia import (
     RespuestaFalloSeguro,
     fallar,
@@ -98,6 +99,7 @@ from tiendahogar_agent.resiliencia import (
 )
 from tiendahogar_agent.retriever import Retriever
 from tiendahogar_agent.texto import es_vacio_visible, quitar_tildes
+from tiendahogar_agent.tracing import LLMContado, construir_traza, traza_actual, traza_de_turno
 
 logger = logging.getLogger(__name__)
 
@@ -241,8 +243,12 @@ class Orquestador:
         retriever: Retriever,
         settings: Settings,
         pedidos: OrderRepository | None = None,
+        trace_sink: TraceSink | None = None,
     ) -> None:
         self._llm = llm
+        # Sin sink no se traza ni se escribe nada (T17); un fallo del sink nunca altera el turno.
+        self._trace_sink = trace_sink
+        self._llm_contado = LLMContado(llm)
         self._retriever = retriever
         self._settings = settings
         self._pedidos: OrderRepository = pedidos if pedidos is not None else OrderRepositoryMock()
@@ -258,11 +264,24 @@ class Orquestador:
     ) -> AgentResponse:
         """Procesa un turno. `historial`: turnos previos `{"role": "user"|"assistant", "content"}`."""
         trace_id = str(uuid.uuid4())
-        try:
-            respuesta = self._procesar(mensaje, historial, trace_id)
-        except Exception as exc:  # noqa: BLE001  borde externo: fallo seguro = escalar
-            respuesta = fallar("error_inesperado", trace_id, exc).respuesta
-        logger.info("turno finalizado trace_id=%s accion=%s", trace_id, respuesta.accion)
+        inicio = time.perf_counter()
+        with traza_de_turno(self._trace_sink is not None) as traza:
+            try:
+                respuesta = self._procesar(mensaje, historial, trace_id)
+            except Exception as exc:  # noqa: BLE001  borde externo: fallo seguro = escalar
+                respuesta = fallar("error_inesperado", trace_id, exc).respuesta
+            logger.info("turno finalizado trace_id=%s accion=%s", trace_id, respuesta.accion)
+            if traza is not None and self._trace_sink is not None:
+                try:
+                    latencia_ms = (time.perf_counter() - inicio) * 1000
+                    self._trace_sink.registrar(
+                        construir_traza(respuesta, traza, self._settings, latencia_ms)
+                    )
+                except Exception as exc:  # noqa: BLE001  la traza nunca rompe el turno
+                    logger.warning(
+                        "no se pudo registrar la traza trace_id=%s tipo=%s",
+                        trace_id, type(exc).__name__,
+                    )
         return respuesta
 
     # ------------------------------------------------------------------ flujo
@@ -278,8 +297,11 @@ class Orquestador:
 
         decision = evaluar_con_settings(mensaje, self._settings)
         decision, intencion = aplicar_clasificador(
-            mensaje, decision, self._llm, self._settings, trace_id
+            mensaje, decision, self._llm_contado, self._settings, trace_id
         )
+        traza = traza_actual()
+        if traza is not None and decision.escalar:
+            traza.categoria, traza.regla = decision.categoria, decision.regla
         if decision.escalar:
             return self._escalar(mensaje, turnos, usuario, decision, trace_id)
         if intencion is not None and intencion.intencion == "fuera_de_alcance":
@@ -329,11 +351,12 @@ class Orquestador:
             *turnos,
             {"role": "user", "content": mensaje},
         ]
-        respuesta = llamar_llm_seguro(self._llm, mensajes, self._settings, trace_id=trace_id)
+        respuesta = llamar_llm_seguro(self._llm_contado, mensajes, self._settings, trace_id=trace_id)
         texto: str | None = None
         if isinstance(respuesta, LLMResponse) and not es_vacio_visible(respuesta.texto):
             candidato = (respuesta.texto or "").strip()
             veredicto = verificar_salida(candidato, "escalar", [], [], None, usuario)
+            _registrar_reglas_fallidas(veredicto.reglas_fallidas)
             if veredicto.ok:
                 texto = candidato
             else:
@@ -361,6 +384,7 @@ class Orquestador:
         if isinstance(encontrados, RespuestaFalloSeguro):
             return encontrados.respuesta
         evidencia.agregar_chunks([r.chunk for r in encontrados])
+        _registrar_documentos(encontrados, "rag_automatico")
         logger.info("rag por turno trace_id=%s fragmentos=%d", trace_id, len(encontrados))
         mensajes.insert(
             1,
@@ -386,7 +410,7 @@ class Orquestador:
         while usadas < limite:
             usadas += 1
             respuesta = llamar_llm_seguro(
-                self._llm, mensajes, self._settings, tools=self._tools, trace_id=trace_id,
+                self._llm_contado, mensajes, self._settings, tools=self._tools, trace_id=trace_id,
                 tool_choice=TOOL_CHOICE_BUCLE,
             )
             if isinstance(respuesta, RespuestaFalloSeguro):
@@ -408,6 +432,10 @@ class Orquestador:
                     "bucle_sin_respuesta", trace_id, detalle="más de una llamada a responder"
                 ).respuesta
             if finales and _error_argumentos_responder(finales[0].argumentos) is None:
+                _registrar_tool(
+                    NOMBRE_TOOL_RESPONDER,
+                    {k: v for k, v in finales[0].argumentos.items() if k != "respuesta"},
+                )
                 entrega = self._entregar(
                     finales[0].argumentos, evidencia, usuario, trace_id, mensaje,
                     reintento_hecho_usado=reintento_hecho_usado,
@@ -470,6 +498,7 @@ class Orquestador:
             if fallo is not None:
                 return fallo
             evidencia.pedidos.append(pedido)
+            _registrar_tool(NOMBRE_TOOL_PEDIDO, {"order_id": order_id}, "reconsulta_automatica")
             if order_id in ids_actuales:
                 evidencia.pedidos_turno.append(pedido)
             bloques.append(json.dumps(pedido, ensure_ascii=False))
@@ -507,11 +536,13 @@ class Orquestador:
     ) -> dict[str, Any] | AgentResponse:
         """Ejecuta una tool: mensaje de resultado para el LLM, o la respuesta de fallo seguro."""
         args = llamada.argumentos
+        _registrar_tool(llamada.nombre, args)
         if llamada.nombre == NOMBRE_TOOL_BUSCAR and _args_texto(args, "consulta"):
             encontrados = recuperar_seguro(self._retriever, args["consulta"], trace_id)
             if isinstance(encontrados, RespuestaFalloSeguro):
                 return encontrados.respuesta
             evidencia.agregar_chunks([r.chunk for r in encontrados])
+            _registrar_documentos(encontrados, "buscar_politicas")
             contexto = construir_contexto_documentos(
                 encontrados, ids=[r.fuente.doc_id for r in encontrados]
             )
@@ -570,6 +601,7 @@ class Orquestador:
             args["respuesta"].strip(), accion,  # type: ignore[arg-type]  # accion es una Accion válida
             fuentes, evidencia.chunks, evidencia.resultado_pedido, usuario,
         )
+        _registrar_reglas_fallidas(veredicto.reglas_fallidas)
         if R_HECHO in veredicto.reglas_fallidas and not reintento_hecho_usado:
             # El hecho correcto sale de la tabla de hechos (texto literal de los documentos): se
             # añade como evidencia para que la corrección pueda citarlo y sustentar su cifra.
@@ -584,6 +616,9 @@ class Orquestador:
                 "hecho_incorrecto detectado, se reintenta una vez trace_id=%s hechos=%d",
                 trace_id, len(discrepancias),
             )
+            traza = traza_actual()
+            if traza is not None:
+                traza.reintentos = 1
             return _PedirCorreccion(tuple(
                 d[len(PREFIJO_DETALLE_HECHO):] for d in veredicto.detalles
                 if d.startswith(PREFIJO_DETALLE_HECHO)
@@ -607,6 +642,24 @@ class Orquestador:
 
 
 # ---------------------------------------------------------------------- utilidades
+def _registrar_documentos(resultados: list[Any], origen: str) -> None:
+    traza = traza_actual()
+    if traza is not None:
+        traza.agregar_documentos(resultados, origen)
+
+
+def _registrar_tool(nombre: str, argumentos: Any, origen: str = "llm") -> None:
+    traza = traza_actual()
+    if traza is not None:
+        traza.agregar_tool(nombre, argumentos, origen)
+
+
+def _registrar_reglas_fallidas(reglas: Any) -> None:
+    traza = traza_actual()
+    if traza is not None:
+        traza.reglas_fallidas.extend(str(r) for r in reglas)
+
+
 def extraer_ids_pedido(textos: list[str], maximo: int = MAX_IDS_RECONSULTA) -> list[str]:
     """Ids `ORD-####` (regex estricto) normalizados, sin repetir; los `maximo` más recientes.
 

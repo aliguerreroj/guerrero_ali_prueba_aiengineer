@@ -40,6 +40,7 @@ from pydantic import ValidationError
 
 from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
 from tiendahogar_agent.adaptadores.fabrica_llm import crear_llm
+from tiendahogar_agent.adaptadores.traza_jsonl import JsonlTraceSink
 from tiendahogar_agent.config import Settings, cargar_settings
 from tiendahogar_agent.documentos import FileSystemDocumentSource
 from tiendahogar_agent.indice_lexico import IndiceLexico
@@ -72,7 +73,8 @@ def construir_orquestador(settings: Settings, docs: Path = DOCS_POR_DEFECTO) -> 
     else:
         llm = crear_llm(settings)  # ValueError claro (sin secretos) si falta la clave
         retriever = construir_retriever(settings, chunks)
-    return Orquestador(llm, retriever, settings)
+    # T17: una línea JSONL por turno en <logs>/trazas.jsonl (PII enmascarada).
+    return Orquestador(llm, retriever, settings, trace_sink=JsonlTraceSink(directorio_logs()))
 
 
 def formatear_respuesta(r: AgentResponse) -> str:

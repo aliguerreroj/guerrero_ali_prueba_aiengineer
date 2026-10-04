@@ -69,11 +69,19 @@ class EventBus(Protocol):
     def publicar(self, evento: dict[str, Any]) -> None: ...
 
 
+@runtime_checkable
+class TraceSink(Protocol):
+    """Destino de las trazas por turno (T17). Un fallo aquí nunca debe romper el turno."""
+
+    def registrar(self, traza: dict[str, Any]) -> None: ...
+
+
 __all__ = [
     "DocumentSource",
     "Embedder",
     "EventBus",
     "LLMClient",
     "OrderRepository",
+    "TraceSink",
     "VectorStore",
 ]

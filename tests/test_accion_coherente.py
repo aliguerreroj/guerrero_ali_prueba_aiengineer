@@ -30,6 +30,7 @@ def _entorno(monkeypatch, tmp_path):
     for v in ("USAR_CLASIFICADOR_LLM", "MAX_ITERACIONES_LLM", "LLM_PROVIDER"):
         monkeypatch.delenv(v, raising=False)
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TIENDAHOGAR_LOGS_DIR", str(tmp_path / "logs"))  # T17: sin trazas en el repo
 
 
 @pytest.fixture(scope="module")

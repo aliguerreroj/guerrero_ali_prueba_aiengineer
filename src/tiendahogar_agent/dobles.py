@@ -119,6 +119,16 @@ class FakeOrderRepository:
         return {"order_id": order_id, "estado": "no encontrado"}
 
 
+class FakeTraceSink:
+    """Sumidero de trazas en memoria (T17)."""
+
+    def __init__(self) -> None:
+        self.trazas: list[dict[str, Any]] = []
+
+    def registrar(self, traza: dict[str, Any]) -> None:
+        self.trazas.append(traza)
+
+
 class FakeEventBus:
     """Bus que acumula los eventos publicados."""
 

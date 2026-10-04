@@ -319,7 +319,7 @@
       "id": "T17",
       "fase": 4,
       "titulo": "Trazas JSONL con tokens y costo",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "recomendada",
       "depende_de": [
         "T14"
@@ -330,8 +330,8 @@
         "logs/ sigue ignorado por git"
       ],
       "verificacion": "python -m pytest tests/test_tracing.py -q",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO a la primera. Traza en logs/trazas.jsonl (un archivo para todas las sesiones, sin rotación). Acumulador por turno con ContextVar y proxy LLMContado que suma el uso de todas las llamadas LLM; la traza se registra siempre y un fallo del sink no altera el turno. No se guarda texto del cliente ni de la respuesta; argumentos de tools enmascarados con pii.py (nombres y direcciones no: límite de T09). Precios Haiku 4.5 (1,00 / 5,00 USD por millón) tomados de la tabla de la skill claude-api (caché 2026-09-25); NO verificados en vivo porque el acceso a la página oficial falló: el humano debe confirmarlos. MENOR: json.dumps sin allow_nan=False (NaN/Infinity darían JSON no estricto, improbable); las llamadas que lanzan excepción no suman tokens ni cuentan en llamadas_llm; el proxy fallaría si un doble devolviera una respuesta sin uso; el test de rendimiento de test_hechos (umbral 2 s) es sensible a la carga de la máquina."
     },
     {
       "id": "T18",

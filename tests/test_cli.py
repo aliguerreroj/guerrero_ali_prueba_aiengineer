@@ -256,11 +256,12 @@ def test_construir_orquestador_fake_no_usa_embeddings_reales(sin_red):
     assert type(orq._llm).__name__ == "LLMDemo"
 
 
-def test_modulo_ejecutable_con_python_m():
+def test_modulo_ejecutable_con_python_m(tmp_path):
     r = subprocess.run(
         [sys.executable, "-m", "tiendahogar_agent.cli", "--una-vez", "ORD-1003"],
         capture_output=True, text=True, encoding="utf-8", cwd=RAIZ,
         env={"PYTHONPATH": str(RAIZ / "src"), "LLM_PROVIDER": "fake", "PATH": "",
+             "TIENDAHOGAR_LOGS_DIR": str(tmp_path / "logs"),
              "SYSTEMROOT": __import__("os").environ.get("SYSTEMROOT", "")},
         timeout=120, check=False,
     )

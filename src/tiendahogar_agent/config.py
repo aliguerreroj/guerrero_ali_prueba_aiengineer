@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Clasificador de intención (T15): capa LLM tras las reglas; ACTIVADA por defecto (ADR-008).
     usar_clasificador_llm: bool = True
     max_tokens_clasificador: int = 96
+    # Trazas (T17): USD por millón de tokens, para estimar el costo de cada turno.
+    precio_entrada_por_millon: float = 1.00
+    precio_salida_por_millon: float = 5.00
     anthropic_api_key: SecretStr | None = None
     # Azure OpenAI (opcionales; el «modelo» es el nombre del deployment)
     azure_openai_api_key: SecretStr | None = None
@@ -102,6 +105,12 @@ class Settings(BaseSettings):
             raise ValueError("max_tokens_clasificador debe ser >= 1")
         if not 0 <= self.max_reintentos_llm <= 5:
             raise ValueError("max_reintentos_llm debe estar entre 0 y 5")
+        return self
+
+    @model_validator(mode="after")
+    def _validar_precios(self) -> Settings:
+        if self.precio_entrada_por_millon < 0 or self.precio_salida_por_millon < 0:
+            raise ValueError("los precios por millón de tokens deben ser >= 0")
         return self
 
     @model_validator(mode="after")
