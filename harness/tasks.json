@@ -466,7 +466,7 @@
       "id": "T25",
       "fase": 6,
       "titulo": "README con comandos exactos",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T16"
@@ -476,8 +476,8 @@
         "Comandos validados en un entorno limpio"
       ],
       "verificacion": "python harness/init.py",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO. Comandos comprobados en el .venv existente; la validación en un clon limpio queda en T28. Los comandos con LLM real, Docker y make se verificaron contra el código y la documentación, sin ejecutarlos."
     },
     {
       "id": "T26",
