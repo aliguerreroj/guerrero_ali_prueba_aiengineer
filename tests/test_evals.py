@@ -395,8 +395,15 @@ def _cargar_init():
     return modulo
 
 
-def _correr_init(monkeypatch, argv):
+def _init_sin_entorno_real(monkeypatch):
+    """Carga init.py con el entorno simulado: no depende de que exista un .venv (en CI no hay)."""
     init = _cargar_init()
+    monkeypatch.setattr(init, "python_venv", lambda: init.RAIZ / ".venv" / "bin" / "python")
+    return init
+
+
+def _correr_init(monkeypatch, argv):
+    init = _init_sin_entorno_real(monkeypatch)
     llamadas: list[tuple[str, ...]] = []
 
     def falso(py, *args):
@@ -422,7 +429,7 @@ def test_init_full_ejecuta_el_runner_una_vez(monkeypatch, capsys):
 
 
 def test_init_full_falla_si_el_runner_falla(monkeypatch):
-    init = _cargar_init()
+    init = _init_sin_entorno_real(monkeypatch)
 
     def falso(py, *args):
         rc = 1 if "tiendahogar_agent.evals" in args else 0
