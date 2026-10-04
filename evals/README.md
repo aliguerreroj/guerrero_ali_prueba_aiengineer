@@ -80,8 +80,8 @@ Métricas por categoría (`politica`, `pedido`, `escalamiento`, `fuera_de_alcanc
 | Respaldo | tasa de turnos resueltos con una plantilla de respaldo (campo `respaldo` de la traza): verificación de salida fallida, fallo seguro, o escalamiento cuyo texto del LLM falló o no pasó la verificación. No cuenta el escalamiento legítimo redactado por el LLM |
 | Costo / latencia | suma de `costo_usd` y promedio de `latencia_ms` de las trazas |
 
-Los fallos conocidos (hoy `t18-17`, falso positivo de la tabla de hechos, ADR-009) cuentan como fallo
-normal y el reporte los marca como «conocido». Los tests del runner (`tests/test_evals.py`) usan
+Los fallos conocidos (`CASOS_CONOCIDOS` en `evals.py`; hoy ninguno) cuentan como fallo normal y el
+reporte los marca como «conocido». Los tests del runner (`tests/test_evals.py`) usan
 FakeLLM y los guiones de `tests/golden_guiones.py`: no tocan la red ni leen el `.env`.
 
 ## Calibración del umbral de recuperación (`python -m tiendahogar_agent.calibracion`)

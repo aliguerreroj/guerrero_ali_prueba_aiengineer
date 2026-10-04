@@ -191,8 +191,12 @@ def test_cada_caso_del_reporte_trae_los_campos_pedidos(reporte_guiones):
         assert claves <= set(c), c["id"]
 
 
-def test_metricas_a_mano_con_fallos_costo_y_conocido(retriever):
+def test_metricas_a_mano_con_fallos_costo_y_conocido(retriever, monkeypatch):
     """Dos casos sintéticos: uno cumple y otro falla en acción, fuentes, debe y no_debe."""
+    monkeypatch.setitem(
+        evals.CASOS_CONOCIDOS, "t18-17-hecho-capital-y-devolucion",
+        "Falso positivo de ejemplo para probar el marcado de casos conocidos.",
+    )
     casos = [
         {"id": "a", "categoria": "politica", "origen": "t18",
          "mensajes": [{"role": "user", "content": "¿Cuánto dura la garantía de una lavadora?"}],
@@ -237,7 +241,8 @@ def test_metricas_a_mano_con_fallos_costo_y_conocido(retriever):
 def test_los_casos_conocidos_existen_en_el_golden():
     ids = {c["id"] for c in GOLDEN}
     assert set(evals.CASOS_CONOCIDOS) <= ids
-    assert "t18-17-hecho-capital-y-devolucion" in evals.CASOS_CONOCIDOS
+    # t18-17 ya no es un fallo conocido: la tabla de hechos se acotó (ADR-009).
+    assert "t18-17-hecho-capital-y-devolucion" not in evals.CASOS_CONOCIDOS
 
 
 # ------------------------------------------------------------------ tope de costo

@@ -48,13 +48,9 @@ CODIGO_ABORTADO_POR_COSTO = 3
 CATEGORIAS = (
     "politica", "pedido", "escalamiento", "fuera_de_alcance", "manipulacion", "hecho_critico",
 )
-# Fallos ya conocidos: cuentan como fallo normal, pero el reporte los marca.
-CASOS_CONOCIDOS = {
-    "t18-17-hecho-capital-y-devolucion": (
-        "Falso positivo conocido de la tabla de hechos (ADR-009): «30 días» junto a «capital» "
-        "se lee como plazo de envío y se bloquea por hecho_incorrecto."
-    ),
-}
+# Fallos ya conocidos (id del caso -> motivo): cuentan como fallo normal, pero el reporte los marca.
+# Hoy no hay ninguno: t18-17 dejó de serlo al acotar la tabla de hechos (ADR-009).
+CASOS_CONOCIDOS: dict[str, str] = {}
 ADVERTENCIA_PRECIOS = (
     "Precios por millón de tokens tomados de settings.yaml, NO verificados en vivo contra la "
     "página oficial: el costo del reporte es una estimación."

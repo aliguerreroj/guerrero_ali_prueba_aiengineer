@@ -232,18 +232,14 @@ def test_orquestador_da_la_accion_y_fuentes_esperadas(retriever, caso):
     assert not presentes(r.respuesta, caso["no_debe_contener"]), (caso["id"], r.respuesta)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Falso positivo conocido de la tabla de hechos (ADR-009): «30 días» junto a «capital» "
-    "se lee como plazo de envío y se bloquea por hecho_incorrecto. Al corregirlo, quitar el xfail.",
-)
-def test_falso_positivo_redaccion_natural_capital_y_30_dias(retriever):
+def test_redaccion_natural_capital_y_30_dias_no_se_bloquea(retriever):
+    """«30 días» de devolución junto a «capital» no es un plazo de envío (ADR-009)."""
     caso = next(c for c in CASOS if c["id"] == "t18-17-hecho-capital-y-devolucion")
     texto = "Si recibes tu pedido en la capital, tienes 30 días para devolverlo."
     llm = FakeLLM([
         FakeLLM.llamada_tool("responder", {"respuesta": texto, "fuentes": ["doc2", "doc3"]}, id="fp1"),
-        FakeLLM.llamada_tool("responder", {"respuesta": texto, "fuentes": ["doc2", "doc3"]}, id="fp2"),
     ])
     orq = Orquestador(llm, retriever, Settings(usar_clasificador_llm=False))
     r = orq.procesar(caso["mensajes"][-1]["content"])
     assert r.accion == "responder" and r.fuentes == ["doc2", "doc3"]
+    assert len(llm.llamadas) == 1, "sin reintento por hecho_incorrecto"

@@ -93,8 +93,8 @@ def test_refrigeradora_12_meses_pasa():
 
 
 @pytest.mark.parametrize("texto", [
-    "Los envíos a la capital tardan 5-7 días.",
-    "Envíos a la capital en 5-7 días.",
+    "Los envíos a la capital tardan 5-7 días hábiles.",
+    "Envíos a la capital en 5-7 días hábiles.",
     "La lavadora tiene 6 meses de garantía.",
     "La plancha tiene 12 meses de garantía.",
     "La tostadora tiene doce meses de garantía.",
@@ -126,10 +126,10 @@ def test_destino_otras_ciudades_con_rango_capital_falla():
 
 
 def test_dos_productos_asocia_cada_cifra_al_termino_precedente():
-    assert _ver("La licuadora tiene 6 meses y la refrigeradora 12 meses.").ok
-    assert _ver("La refrigeradora tiene 12 meses y la licuadora 6 meses.").ok
-    assert _bloquea("La licuadora tiene 12 meses y la refrigeradora 12 meses.")
-    assert _bloquea("La licuadora tiene 6 meses y la refrigeradora 6 meses.")
+    assert _ver("La licuadora tiene 6 meses y la refrigeradora 12 meses de garantía.").ok
+    assert _ver("La refrigeradora tiene 12 meses y la licuadora 6 meses de garantía.").ok
+    assert _bloquea("La licuadora tiene 12 meses y la refrigeradora 12 meses de garantía.")
+    assert _bloquea("La licuadora tiene 6 meses y la refrigeradora 6 meses de garantía.")
 
 
 def test_cifra_sin_termino_precedente_usa_el_siguiente():
@@ -138,12 +138,12 @@ def test_cifra_sin_termino_precedente_usa_el_siguiente():
 
 
 def test_negacion_y_correccion():
-    assert _ver("La licuadora no tiene 12 meses, sino 6 meses.").ok
-    assert _ver("No son 12 meses, son 6 meses para tu licuadora.").ok
+    assert _ver("La licuadora no tiene 12 meses de garantía, sino 6 meses.").ok
+    assert _ver("No son 12 meses, son 6 meses de garantía para tu licuadora.").ok
     assert _ver("Para las licuadoras la garantía es de 6 meses, no de 12 meses.").ok
     # la negación no debe regalar el error en otra cláusula
-    assert _bloquea("No te preocupes, la licuadora tiene 12 meses.")
-    assert _bloquea("La licuadora no tiene 6 meses sino 12 meses.")
+    assert _bloquea("No te preocupes, la licuadora tiene 12 meses de garantía.")
+    assert _bloquea("La licuadora no tiene 6 meses sino 12 meses de garantía.")
 
 
 def test_cifras_de_otra_unidad_o_sin_unidad_no_activan_garantia():
@@ -167,7 +167,7 @@ def test_hace_n_meses_no_cuenta():
 
 
 def test_unidad_con_un_mes_y_decena_en_letras():
-    d = detectar_discrepancias("La licuadora tiene treinta y seis meses.")
+    d = detectar_discrepancias("La licuadora tiene treinta y seis meses de garantía.")
     assert d and d[0].cifra.startswith("treinta y seis")
     assert detectar_discrepancias("La licuadora tiene un mes de garantía.")
 
@@ -200,7 +200,7 @@ def test_oraciones_separadas_no_se_mezclan():
 def test_no_lanza_con_entradas_raras():
     assert detectar_discrepancias(None) == []  # type: ignore[arg-type]
     assert detectar_discrepancias("") == []
-    r = verificar_salida("La licuadora tiene 12 meses", "responder", ["doc1"], CHUNKS, None, "")
+    r = verificar_salida("La licuadora tiene 12 meses de garantía", "responder", ["doc1"], CHUNKS, None, "")
     assert R_HECHO in r.reglas_fallidas
 
 
@@ -315,7 +315,7 @@ def test_dos_respuestas_incorrectas_dan_respuesta_segura_con_dos_llamadas(retrie
     orq, llm = _orq(
         retriever,
         _responder("Tu licuadora tiene 12 meses de garantía."),
-        _responder("Sí, son 12 meses para tu licuadora."),
+        _responder("Sí, son 12 meses de garantía para tu licuadora."),
         _responder("Tu licuadora tiene 6 meses."),  # no debe consumirse
     )
     with caplog.at_level(logging.WARNING):
@@ -387,8 +387,8 @@ def test_grupo_coordinado_se_evalua_contra_todos_los_terminos(texto):
     "Las lavadoras y las refrigeradoras tienen 12 meses de garantía.",
     "Tanto la lavadora como la estufa tienen 12 meses de garantía.",
     "Las licuadoras, planchas y tostadoras tienen 6 meses de garantía.",
-    "La licuadora tiene 6 meses y la refrigeradora 12 meses.",
-    "La licuadora tiene 6 meses, la plancha 6 meses y la lavadora 12 meses.",
+    "La licuadora tiene 6 meses y la refrigeradora 12 meses de garantía.",
+    "La licuadora tiene 6 meses, la plancha 6 meses y la lavadora 12 meses de garantía.",
 ])
 def test_grupo_coherente_o_cifras_separadas_pasan(texto):
     assert _ver(texto).ok
@@ -408,9 +408,9 @@ def test_microondas_con_respuesta_honesta_sin_canal_queda_en_responder(retriever
 
 # ----------------------------------- dos cifras correctas: no se agrupan (ADR-009)
 @pytest.mark.parametrize("texto", [
-    "La licuadora y la lavadora tienen 6 y 12 meses respectivamente.",
-    "La licuadora y la lavadora tienen 6 meses y 12 meses.",
-    "Las licuadoras y las refrigeradoras tienen 6 y 12 meses respectivamente.",
+    "La licuadora y la lavadora tienen 6 y 12 meses de garantía respectivamente.",
+    "La licuadora y la lavadora tienen 6 meses y 12 meses de garantía.",
+    "Las licuadoras y las refrigeradoras tienen 6 y 12 meses de garantía respectivamente.",
     "Tienes 12 meses de garantía en tu lavadora y 6 meses en tu licuadora.",
     "Tienes 6 meses de garantía en tu licuadora y 12 meses en tu lavadora.",
     "El envío tarda 2-3 días hábiles a la capital y 5-7 días hábiles a otras ciudades.",
@@ -422,11 +422,11 @@ def test_dos_cifras_correctas_con_dos_terminos_pasan(texto):
 
 
 @pytest.mark.parametrize("texto", [
-    "La licuadora y la lavadora tienen 12 y 6 meses respectivamente.",
-    "La licuadora y la lavadora tienen 12 meses y 6 meses.",
+    "La licuadora y la lavadora tienen 12 y 6 meses de garantía respectivamente.",
+    "La licuadora y la lavadora tienen 12 meses y 6 meses de garantía.",
     "Tienes 12 meses de garantía en tu licuadora y 6 meses en tu lavadora.",
     "El envío tarda 5-7 días hábiles a la capital y 2-3 días hábiles a otras ciudades.",
-    "Las licuadoras y las lavadoras tienen entre 6 y 12 meses.",
+    "Las licuadoras y las lavadoras tienen garantía de entre 6 y 12 meses.",
 ])
 def test_dos_cifras_cruzadas_siguen_fallando(texto):
     assert _bloquea(texto, fuentes=("doc1", "doc3"))
@@ -440,7 +440,7 @@ def test_cifras_y_terminos_en_distinto_numero_no_se_evaluan():
 # ----------------------------------------- conectores, atribución y coste
 @pytest.mark.parametrize("texto", [
     "La licuadora, así como la lavadora, tiene 12 meses de garantía.",
-    "La licuadora tiene lo mismo que la lavadora: 12 meses.",
+    "La licuadora tiene lo mismo que la lavadora en garantía: 12 meses.",
     "La licuadora tiene igual garantía que la lavadora: 12 meses.",
     "A la capital, así como a otras ciudades, llega en 5-7 días hábiles.",
     "La licuadora tiene 12 meses de garantía, como dices.",
@@ -461,8 +461,8 @@ def test_cifra_atribuida_al_cliente_no_se_evalua(texto):
 
 
 def test_atribucion_no_exime_la_afirmacion_propia():
-    assert _bloquea("Dices que sí, y la licuadora tiene 12 meses.")
-    assert _bloquea("La licuadora tiene 12 meses, como dices.")
+    assert _bloquea("Dices que sí, y la licuadora tiene 12 meses de garantía.")
+    assert _bloquea("La licuadora tiene 12 meses de garantía, como dices.")
 
 
 def test_rendimiento_con_grupos_y_cifras_repetidas():
@@ -472,3 +472,54 @@ def test_rendimiento_con_grupos_y_cifras_repetidas():
     detectar_discrepancias("capital, " * 10000 + "llega en 2-3 días " * 3000)
     detectar_discrepancias("12 meses " * 11000)
     assert time.perf_counter() - t0 < 2.0
+
+
+# ------------------- palabra clave + unidad (ADR-009, acotación tras el eval real T19)
+# Una cifra solo se compara si aparece junto a la palabra clave de su hecho Y con su unidad:
+# garantía + «meses», envío (envío/entrega/llega/...) + «días hábiles».
+@pytest.mark.parametrize("texto", [
+    # vivo2-08: respuesta legítima con cifras de otros hechos cerca del producto
+    ("Como la compraste hace 2 meses, la lavadora está dentro de la garantía de 12 meses y, si el "
+     "defecto es de fábrica, puedes devolverla aunque hayan pasado los 30 días."),
+    "Tu lavadora tiene apenas 2 meses de uso; las lavadoras tienen garantía de 12 meses.",
+    "Tu lavadora tiene apenas 2 meses de uso, y su garantía es de 12 meses.",
+    ("Si pasaron más de 30 días, la lavadora solo se devuelve por un defecto cubierto por la "
+     "garantía de 12 meses."),
+    # t18-17: «30 días» de devolución no es un plazo de envío
+    "Si recibes tu pedido en la capital, tienes 30 días para devolverlo.",
+    # cifras sin su palabra clave (límite aceptado por decisión del humano)
+    "La licuadora dura 12 meses.",
+    "El envío a la capital tarda 10 días.",
+])
+def test_cifra_sin_palabra_clave_y_unidad_no_se_verifica(texto):
+    assert not detectar_discrepancias(texto)
+    assert not _bloquea(texto, fuentes=("doc1", "doc2", "doc3"))
+
+
+@pytest.mark.parametrize("texto", [
+    "La lavadora tiene garantía de 6 meses.",
+    "Hay garantía de 12 meses para la licuadora.",
+    "El envío a otras ciudades tarda 2-3 días hábiles.",
+    "El microondas tiene garantía de 12 meses.",
+    "La licuadora tiene 12 meses de garantía.",
+    "El envío a la capital tarda 5-7 días hábiles.",
+])
+def test_errores_reales_con_palabra_clave_y_unidad_siguen_bloqueados(texto):
+    assert _bloquea(texto, fuentes=("doc1", "doc3"))
+
+
+def test_frase_natural_capital_y_30_dias_no_tiene_discrepancias():
+    frase = "Si recibes tu pedido en la capital, tienes 30 días para devolverlo."
+    assert detectar_discrepancias(frase) == []
+    assert not _bloquea(frase, fuentes=("doc2", "doc3"))
+
+
+def test_palabra_clave_lejana_o_tras_corte_de_clausula_no_cuenta():
+    # más de 12 palabras entre la cifra y la palabra clave
+    lejos = "La licuadora tiene 12 meses " + "y " * 14 + "esto es todo, sobre la garantía."
+    assert not detectar_discrepancias(lejos)
+    # corte de cláusula fuerte (coma, «pero», «sino», «aunque») entre la cifra y la clave
+    assert not detectar_discrepancias("Tu licuadora tiene 12 meses de uso, y la garantía existe.")
+    assert not detectar_discrepancias("Tu licuadora tiene 12 meses de uso pero la garantía varía.")
+    assert not detectar_discrepancias("Tu licuadora tiene 12 meses de uso aunque la garantía varía.")
+    assert detectar_discrepancias("Tu licuadora tiene 12 meses de garantía, o eso creo.")

@@ -8,10 +8,17 @@ literal (un test comprueba que existe tal cual en `data/docs/`).
 Detección (léxica y determinista, sin LLM; no es comprensión semántica):
 - El texto se divide en oraciones (`. ? ! ;` seguidos de espacio, o salto de línea) y se
   normaliza sin tildes ni mayúsculas.
-- Cifra con unidad: «12 meses», «doce meses», «5-7 días hábiles», «5 a 7 días», «entre 5
-  y 7 días», «un mes». Meses solo se comparan con hechos de garantía; días (hábiles o no)
-  solo con hechos de envío y solo si la oración tiene una palabra de envío (envío,
-  entrega, llega, despacho, demora, tarda, recibe).
+- Cifra con unidad: «12 meses», «doce meses», «5-7 días hábiles», «5 a 7 días hábiles»,
+  «entre 5 y 7 días hábiles», «un mes». Una cifra solo se compara si aparece junto a la PALABRA
+  CLAVE de su hecho y con su UNIDAD (acotación tras el eval real T19, decisión del humano):
+  garantía = palabra «garantía» + «meses» («garantía de 12 meses», «12 meses de garantía»);
+  envío = palabra de envío (envío, entrega, llega, despacho, demora, tarda, recibe) + «días
+  hábiles» («el envío a la capital tarda 2-3 días hábiles»). «30 días para devolverlo», «hace
+  2 meses» o «2 meses de uso» no activan nada.
+- «Junto a»: la palabra clave está a lo sumo a 12 palabras (separadas por espacio) antes o
+  después de la cifra, en la misma oración y sin cruzar un corte fuerte (coma, paréntesis,
+  «pero», «sino», «aunque»). 12 es el mínimo que conserva los casos coordinados del conjunto
+  de pruebas («llega a otras ciudades en 5-7 días hábiles y a la capital en 2-3 días hábiles»).
 - Cada cifra se asocia al término más cercano que la precede (del mismo tipo); si ninguno
   la precede, al más cercano que la sigue. Así «la licuadora tiene 6 meses y la
   refrigeradora 12» no falla y «la licuadora tiene 12 meses» sí.
@@ -24,6 +31,11 @@ Detección (léxica y determinista, sin LLM; no es comprensión semántica):
   cifras precedidas de «hace» («la compraste hace 12 meses»).
 - Productos NO listados (microondas, televisor...): ninguna garantía con cifra en meses
   puede asignárseles; se reporta con `hecho=None`.
+
+Límite aceptado por decisión del humano: una redacción sin la palabra «garantía» o sin «días
+hábiles» («el envío tarda 10 días», «la licuadora dura 12 meses», «5-7 días» a secas) YA NO se
+verifica; se prefiere dejar pasar eso a bloquear respuestas correctas que mezclan cifras de
+otros hechos (plazo de devolución de 30 días, antigüedad de la compra, garantía).
 
 Límites: heurística léxica con lista cerrada de productos y destinos; no convierte unidades
 («un año» no es «12 meses»; «una semana» no es «7 días»); no sabe que «nevera» es una
@@ -174,7 +186,15 @@ _ATRIBUIDA = re.compile(
 _ENTRE = re.compile(r"\bentre\s*$")
 # Solo se examinan los últimos caracteres previos a cada cifra (coste lineal, no cuadrático).
 _VENTANA_CARACTERES = 100
+# Palabra clave de cada hecho: la cifra solo se compara si la tiene «junto a» (ADR-009).
 _CUE_ENVIO = re.compile(r"\b(?:envi|entreg|lleg|despach|demor|tard|recib)")
+_CUE_GARANTIA = re.compile(r"\bgarantia")
+# «Junto a»: palabra clave a lo sumo a 12 palabras (separadas por espacio) antes o después de la
+# cifra, en la misma oración y sin cruzar un corte fuerte (coma, paréntesis, «pero», «sino»,
+# «aunque»). 12 es el mínimo que conserva los casos coordinados del conjunto de pruebas
+# («llega a otras ciudades en 5-7 días hábiles y a la capital en 2-3 días hábiles»).
+_VENTANA_PALABRAS = 12
+_CORTE_FUERTE = re.compile(r"[,(]|\b(?:pero|sino|aunque)\b")
 _SEPARADOR_ORACION = re.compile(r"(?<=[.?!;])\s+|\n+")
 
 
@@ -361,17 +381,65 @@ def _evaluar(
                 return
 
 
+class _Contexto:
+    """Índices de una oración para decidir en O(log n) si una cifra tiene su palabra clave cerca."""
+
+    def __init__(self, oracion: str) -> None:
+        self.n = len(oracion)
+        self.palabras = [m.start() for m in re.finditer(r"\S+", oracion)]
+        self.cortes = [(m.start(), m.end()) for m in _CORTE_FUERTE.finditer(oracion)]
+        self.corte_ini = [c[0] for c in self.cortes]
+        self.corte_fin = [c[1] for c in self.cortes]
+        self._claves: dict[re.Pattern[str], list[int]] = {}
+        self._oracion = oracion
+
+    def _posiciones(self, clave: re.Pattern[str]) -> list[int]:
+        if clave not in self._claves:
+            self._claves[clave] = [m.start() for m in clave.finditer(self._oracion)]
+        return self._claves[clave]
+
+    def cerca(self, c: re.Match[str], clave: re.Pattern[str]) -> bool:
+        """¿Hay `clave` a <= 12 palabras de la cifra, sin cruzar un corte fuerte?"""
+        pos = self._posiciones(clave)
+        if not pos:
+            return False
+        k = bisect_right(self.palabras, c.start()) - 1
+        desde = self.palabras[max(0, k - _VENTANA_PALABRAS)]
+        i = bisect_right(self.corte_ini, c.start()) - 1  # último corte que empieza antes
+        if i >= 0:
+            desde = max(desde, self.corte_fin[i])
+        j = bisect_left(pos, desde)
+        if j < len(pos) and pos[j] < c.start():
+            return True
+        k = bisect_left(self.palabras, c.end()) + _VENTANA_PALABRAS
+        hasta = self.palabras[k] if k < len(self.palabras) else self.n
+        i = bisect_left(self.corte_ini, c.end())
+        if i < len(self.cortes):
+            hasta = min(hasta, self.corte_ini[i])
+        j = bisect_left(pos, c.end())
+        return j < len(pos) and pos[j] < hasta
+
+
 def _revisar_oracion(oracion: str, salida: list[Discrepancia], tope: int) -> None:
     todas = list(_CIFRA.finditer(oracion))
     if not todas:
         return
     gar = list(_RE_GARANTIA.finditer(oracion))
-    env = list(_RE_ENVIO.finditer(oracion)) if _CUE_ENVIO.search(oracion) else []
-    for terminos, tabla, es_mes in ((gar, _TERMINOS_GARANTIA, True), (env, _TERMINOS_ENVIO, False)):
+    env = list(_RE_ENVIO.finditer(oracion))
+    # (términos, tabla, unidad que exige la cifra, palabra clave que debe acompañarla)
+    reglas = (
+        (gar, _TERMINOS_GARANTIA, "mes", _CUE_GARANTIA),
+        (env, _TERMINOS_ENVIO, "dias habiles", _CUE_ENVIO),
+    )
+    contexto: _Contexto | None = None
+    for terminos, tabla, unidad, clave in reglas:
         if not terminos:
             continue
+        contexto = contexto or _Contexto(oracion)
         cifras = [
-            c for c in todas if c.group("u").startswith("mes") == es_mes and not _omitida(oracion, c)
+            c for c in todas
+            if re.sub(r"\s+", " ", c.group("u")).startswith(unidad)
+            and contexto.cerca(c, clave) and not _omitida(oracion, c)
         ]
         if cifras:
             _evaluar(oracion, terminos, cifras, tabla, salida, tope)

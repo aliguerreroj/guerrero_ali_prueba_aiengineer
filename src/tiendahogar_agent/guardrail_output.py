@@ -14,9 +14,11 @@ Reglas (identificadores estables en `reglas_fallidas`):
 - `falta_canal_escalamiento`: si la acción es escalar, la respuesta nombra el canal.
 - `respuesta_demasiado_larga`: la respuesta supera MAX_CARACTERES_RESPUESTA (20 000); se
   falla seguro sin analizarla (el contexto se recorta a 100 000 caracteres por texto).
-- `hecho_incorrecto` (ADR-009): una cifra con unidad contradice la tabla de hechos de
-  `hechos.py` (garantía por categoría, envío por destino) o asigna garantía a un producto
-  no listado; `detalles` trae el hecho correcto, su doc_id y la frase de origen.
+- `hecho_incorrecto` (ADR-009): una cifra contradice la tabla de hechos de `hechos.py`
+  (garantía por categoría, envío por destino) o asigna garantía a un producto no listado.
+  Solo se compara una cifra que aparece junto a la palabra clave de su hecho y con su unidad:
+  «garantía» + «meses», palabra de envío + «días hábiles»; «30 días para devolverlo» no la
+  activa. `detalles` trae el hecho correcto, su doc_id y la frase de origen.
 - `canal_innecesario` (T10, acotación de ADR-008): si la acción es `responder` o `pedir_dato` y el
   texto menciona el canal de soporte (sin tildes ni mayúsculas) sin citar `doc5` en `fuentes`,
   la regla falla (el cliente no necesitaba que lo remitan). Con `escalar` no aplica, ni cuando el

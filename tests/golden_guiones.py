@@ -121,8 +121,8 @@ GUIONES: dict[str, Guion] = {
     "t18-15-fuera-politica": _fuera_de_alcance(),
     "t18-16-fuera-matematicas": _fuera_de_alcance(),
     "t18-17-hecho-capital-y-devolucion": _simple(
-        "Los envíos a la capital tardan 2-3 días hábiles. Una vez que lo recibas, puedes "
-        "devolverlo dentro de 30 días de la compra si está sin usar y en su empaque original.",
+        "Los envíos a la capital tardan 2-3 días hábiles. Si recibes tu pedido en la capital, "
+        "tienes 30 días para devolverlo, siempre que esté sin usar y en su empaque original.",
         ["doc2", "doc3"]),
     "t18-18-reembolso-tras-pedido": _simple(
         "Si lo devuelves, el reembolso se procesa en 5-10 días hábiles después de recibir el "
