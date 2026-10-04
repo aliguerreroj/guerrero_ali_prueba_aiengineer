@@ -21,6 +21,7 @@ Decisiones del prototipo:
 
 from __future__ import annotations
 
+import inspect
 import logging
 import threading
 from collections import OrderedDict
@@ -105,6 +106,14 @@ class AlmacenHistorial:
             return len(self._datos)
 
 
+def _acepta_conversation_id(orq: Any) -> bool:
+    """True si `orq.procesar` admite `conversation_id` (clave de idempotencia de T22)."""
+    try:
+        return "conversation_id" in inspect.signature(orq.procesar).parameters
+    except (TypeError, ValueError):
+        return False
+
+
 def crear_app(
     orquestador: Any | None = None,
     settings: Settings | None = None,
@@ -130,7 +139,13 @@ def crear_app(
     def chat(peticion: ChatRequest) -> AgentResponse:
         try:
             orq = obtener_orquestador()
-            respuesta = orq.procesar(peticion.mensaje, historial.obtener(peticion.conversation_id))
+            previo = historial.obtener(peticion.conversation_id)
+            if _acepta_conversation_id(orq):
+                respuesta = orq.procesar(
+                    peticion.mensaje, previo, conversation_id=peticion.conversation_id
+                )
+            else:  # orquestadores de prueba con la firma antigua
+                respuesta = orq.procesar(peticion.mensaje, previo)
             historial.agregar_turno(peticion.conversation_id, peticion.mensaje, respuesta.respuesta)
             return respuesta
         except Exception as exc:  # noqa: BLE001  borde HTTP: nada de trazas ni PII al cliente

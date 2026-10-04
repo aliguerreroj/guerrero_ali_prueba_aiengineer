@@ -39,6 +39,7 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
+from tiendahogar_agent.adaptadores.eventos_local import NOMBRE_ARCHIVO, LocalEventBus
 from tiendahogar_agent.adaptadores.fabrica_llm import crear_llm
 from tiendahogar_agent.adaptadores.traza_jsonl import JsonlTraceSink
 from tiendahogar_agent.config import Settings, cargar_settings
@@ -74,7 +75,12 @@ def construir_orquestador(settings: Settings, docs: Path = DOCS_POR_DEFECTO) -> 
         llm = crear_llm(settings)  # ValueError claro (sin secretos) si falta la clave
         retriever = construir_retriever(settings, chunks)
     # T17: una línea JSONL por turno en <logs>/trazas.jsonl (PII enmascarada).
-    return Orquestador(llm, retriever, settings, trace_sink=JsonlTraceSink(directorio_logs()))
+    # T22: eventos de escalamiento idempotentes en <logs>/eventos_escalamiento.jsonl.
+    logs = directorio_logs()
+    return Orquestador(
+        llm, retriever, settings, trace_sink=JsonlTraceSink(logs),
+        event_bus=LocalEventBus(logs / NOMBRE_ARCHIVO),
+    )
 
 
 def formatear_respuesta(r: AgentResponse) -> str:

@@ -51,6 +51,7 @@ Decisiones:
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import re
@@ -61,6 +62,7 @@ from typing import Any
 
 from tiendahogar_agent.clasificador import aplicar_clasificador
 from tiendahogar_agent.config import Settings
+from tiendahogar_agent.eventos import construir_evento
 from tiendahogar_agent.guardrail_input import (
     CANAL_ESCALAMIENTO,
     ResultadoGuardrail,
@@ -94,7 +96,7 @@ from tiendahogar_agent.prompts import (
     definicion_tool_consultar_pedido,
     definicion_tool_responder,
 )
-from tiendahogar_agent.puertos import LLMClient, OrderRepository, TraceSink
+from tiendahogar_agent.puertos import EventBus, LLMClient, OrderRepository, TraceSink
 from tiendahogar_agent.resiliencia import (
     RespuestaFalloSeguro,
     fallar,
@@ -240,6 +242,12 @@ class _PedirCorreccion:
     regla: str = R_HECHO
 
 
+# Categoría del escalamiento del turno en curso (propia de cada hilo/turno, como la traza).
+_CATEGORIA_TURNO: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar("categoria_turno")
+# Escalamiento sin categoría de entrada: verificación de salida fallida o fallo seguro.
+CATEGORIA_FALLO_SEGURO = "fallo_seguro"
+
+
 class Orquestador:
     """Atiende un mensaje del cliente y devuelve un `AgentResponse` (nunca lanza)."""
 
@@ -250,8 +258,11 @@ class Orquestador:
         settings: Settings,
         pedidos: OrderRepository | None = None,
         trace_sink: TraceSink | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._llm = llm
+        # T22: sin bus no se publica nada; un fallo del bus nunca altera el turno.
+        self._event_bus = event_bus
         # Sin sink no se traza ni se escribe nada (T17); un fallo del sink nunca altera el turno.
         self._trace_sink = trace_sink
         self._llm_contado = LLMContado(llm)
@@ -266,16 +277,25 @@ class Orquestador:
 
     # ------------------------------------------------------------------ API
     def procesar(
-        self, mensaje: str, historial: list[dict[str, Any]] | None = None
+        self,
+        mensaje: str,
+        historial: list[dict[str, Any]] | None = None,
+        conversation_id: str | None = None,
     ) -> AgentResponse:
-        """Procesa un turno. `historial`: turnos previos `{"role": "user"|"assistant", "content"}`."""
+        """Procesa un turno. `historial`: turnos previos `{"role": "user"|"assistant", "content"}`.
+
+        `conversation_id` (opcional) solo alimenta la clave de idempotencia del evento (T22).
+        """
         trace_id = str(uuid.uuid4())
         inicio = time.perf_counter()
+        token_categoria = _CATEGORIA_TURNO.set({})
         with traza_de_turno(self._trace_sink is not None) as traza:
             try:
                 respuesta = self._procesar(mensaje, historial, trace_id)
             except Exception as exc:  # noqa: BLE001  borde externo: fallo seguro = escalar
                 respuesta = fallar("error_inesperado", trace_id, exc).respuesta
+            self._publicar_escalamiento(respuesta, mensaje, historial, conversation_id)
+            _CATEGORIA_TURNO.reset(token_categoria)
             logger.info("turno finalizado trace_id=%s accion=%s", trace_id, respuesta.accion)
             if traza is not None and self._trace_sink is not None:
                 try:
@@ -289,6 +309,34 @@ class Orquestador:
                         trace_id, type(exc).__name__,
                     )
         return respuesta
+
+    # ------------------------------------------------------------------ eventos (T22)
+    def _publicar_escalamiento(
+        self, respuesta: AgentResponse, mensaje: Any, historial: Any, conversation_id: str | None
+    ) -> None:
+        """Publica `EscalationCreated` una vez por turno que termina en `escalar` (mejor esfuerzo).
+
+        Cubre toda ruta que escale (regla, clasificador, verificación de salida, fallo seguro).
+        Nunca lanza: si el bus o la construcción fallan, se registra sin PII y el turno sigue.
+        """
+        if self._event_bus is None or respuesta.accion != "escalar":
+            return
+        try:
+            categoria = _CATEGORIA_TURNO.get({}).get("categoria") or CATEGORIA_FALLO_SEGURO
+            turno = 0
+            if isinstance(historial, (list, tuple)):
+                turno = sum(1 for t in historial if isinstance(t, dict) and t.get("role") == "user")
+            evento = construir_evento(
+                trace_id=respuesta.trace_id, categoria=str(categoria), canal=respuesta.canal,
+                conversation_id=conversation_id, turno=turno,
+                mensaje=mensaje if isinstance(mensaje, str) else "",
+            )
+            self._event_bus.publicar(evento.model_dump(mode="json"))
+        except Exception as exc:  # noqa: BLE001  el bus es mejor-esfuerzo: se escala igual
+            logger.warning(
+                "no se pudo publicar el evento de escalamiento trace_id=%s tipo=%s",
+                respuesta.trace_id, type(exc).__name__,
+            )
 
     # ------------------------------------------------------------------ flujo
     def _procesar(self, mensaje: Any, historial: Any, trace_id: str) -> AgentResponse:
@@ -348,6 +396,7 @@ class Orquestador:
         decision: ResultadoGuardrail,
         trace_id: str,
     ) -> AgentResponse:
+        _CATEGORIA_TURNO.get({})["categoria"] = str(decision.categoria)
         logger.info(
             "escalamiento trace_id=%s categoria=%s regla=%s",
             trace_id, decision.categoria, decision.regla,
