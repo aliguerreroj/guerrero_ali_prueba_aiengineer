@@ -3,6 +3,7 @@
 import time
 
 import pytest
+from tiempos import tope
 
 from tiendahogar_agent.pii import enmascarar_pii, enmascarar_pii_con_conteos
 
@@ -155,7 +156,7 @@ def test_idempotencia_global():
 def test_sin_redos(texto):
     t0 = time.perf_counter()
     enmascarar_pii(texto)
-    assert time.perf_counter() - t0 < 0.5
+    assert time.perf_counter() - t0 < tope(0.5)
 
 
 @pytest.mark.parametrize(

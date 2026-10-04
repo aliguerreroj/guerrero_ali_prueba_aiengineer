@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import pytest
+from tiempos import tope
 
 from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
 from tiendahogar_agent.config import Settings
@@ -211,7 +212,7 @@ def test_rendimiento_entrada_larga_sin_backtracking():
     detectar_discrepancias("la licuadora " + "12 " * 6000 + "x")
     detectar_discrepancias("capital llega " + "5 a " * 4000 + "meses")
     detectar_discrepancias("licuadora tiene 12 meses, " * 700)
-    assert time.perf_counter() - t0 < 3.0
+    assert time.perf_counter() - t0 < tope(3.0)
 
 
 # ------------------------------------------------------------- métricas
@@ -471,7 +472,7 @@ def test_rendimiento_con_grupos_y_cifras_repetidas():
     detectar_discrepancias(("la licuadora tiene 12 meses y la lavadora 6 meses, " * 2000)[:100_000])
     detectar_discrepancias("capital, " * 10000 + "llega en 2-3 días " * 3000)
     detectar_discrepancias("12 meses " * 11000)
-    assert time.perf_counter() - t0 < 2.0
+    assert time.perf_counter() - t0 < tope(2.0)
 
 
 # ------------------- palabra clave + unidad (ADR-009, acotación tras el eval real T19)

@@ -6,6 +6,7 @@ import time
 
 import pytest
 from pydantic import ValidationError
+from tiempos import tope
 
 from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO
 from tiendahogar_agent.guardrail_output import (
@@ -575,7 +576,7 @@ class TestCompromisosEstructural:
         t0 = time.perf_counter()
         for e in entradas:
             detectar_compromisos(e[:20000])
-        assert time.perf_counter() - t0 < 5
+        assert time.perf_counter() - t0 < tope(5)
 
 
 # ---------------------------------------------------------------- escalar
@@ -662,14 +663,14 @@ class TestRobustez:
     def test_respuesta_demasiado_larga_falla_seguro_rapido(self):
         t0 = time.perf_counter()
         res = _ver("1." * 50000)
-        assert time.perf_counter() - t0 < 0.3
+        assert time.perf_counter() - t0 < tope(0.3)
         assert _falla(res, "respuesta_demasiado_larga")
         assert res.accion == "escalar"
 
     def test_contexto_enorme_es_rapido(self):
         t0 = time.perf_counter()
         _ver("Hola.", mensaje="1." * 500000)
-        assert time.perf_counter() - t0 < 3  # margen para máquinas lentas; una regex cuadrática tardaría minutos
+        assert time.perf_counter() - t0 < tope(3)  # margen para máquinas lentas; una regex cuadrática tardaría minutos
 
     @pytest.mark.parametrize("guion", ["‑", "–", "−", "—", "-"])
     def test_guiones_unicode_en_ids(self, guion):
@@ -726,7 +727,7 @@ class TestRobustez:
         ctx = "30 días 1200 pesos"
         t0 = time.perf_counter()
         res = _ver(largo, ctx)
-        assert time.perf_counter() - t0 < 5
+        assert time.perf_counter() - t0 < tope(5)
         assert res.ok
 
     def test_patrones_patologicos_no_cuelgan(self):
@@ -735,7 +736,7 @@ class TestRobustez:
         _ver("1 " * 50000 + "1.1" * 20000, "1")
         _ver("treinta y " * 20000, "")
         _ver("no " * 30000 + "te garantizo", "")
-        assert time.perf_counter() - t0 < 10
+        assert time.perf_counter() - t0 < tope(10)
 
 
 def test_promesa_de_notificacion_se_bloquea():

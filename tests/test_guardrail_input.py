@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
+from tiempos import tope
 
 from tiendahogar_agent.config import Settings
 from tiendahogar_agent.guardrail_input import (
@@ -187,7 +188,7 @@ def test_queja_trato_entrada_larga_lineal():
     t0 = time.perf_counter()
     _ev("queja trato " * 5000)
     _ev("queja " * 20000 + "trato " * 20000)
-    assert time.perf_counter() - t0 < 2
+    assert time.perf_counter() - t0 < tope(2)
 
 
 @pytest.mark.parametrize(
@@ -317,7 +318,7 @@ def test_rendimiento_entrada_larga():
     for m in ["agente " * 10000 + "zzz", "grosero " * 10000, "me cobraron " * 5000, "1 " * 20000 + "reembolso"]:
         t0 = time.perf_counter()
         _ev(m)
-        assert time.perf_counter() - t0 < 0.5
+        assert time.perf_counter() - t0 < tope(0.5)
 
 
 @pytest.mark.parametrize(
@@ -482,4 +483,4 @@ def test_queja_trato_ronda2_entrada_larga_sin_backtracking():
     _ev("me atendio mal " * 5000)
     _ev("reportar " * 20000 + "trato " * 20000)
     _ev("hablar con supervisor " * 5000 + "como me trato " * 5000)
-    assert time.perf_counter() - t0 < 2
+    assert time.perf_counter() - t0 < tope(2)
