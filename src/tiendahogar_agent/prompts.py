@@ -25,7 +25,7 @@ NOMBRE_TOOL_RESPONDER = "responder"
 ACCIONES_SUGERIBLES = ("pedir_dato", "escalar")
 
 _MOTIVOS_ESCALAMIENTO = {
-    "reembolso_alto": "una solicitud de reembolso de monto alto, que debe aprobar una persona supervisora",
+    "reembolso_alto": "una solicitud de reembolso de monto alto, que debe aprobar un supervisor",
     "queja_trato": "una queja sobre el trato recibido de parte de un empleado",
     "facturacion": "una disputa de facturación",
     "legal": "un tema legal",

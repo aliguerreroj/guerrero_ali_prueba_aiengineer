@@ -157,15 +157,6 @@ _POLITICA = [
     ),
 ]
 _NEUTRO = " | "
-# Excepción ACOTADA de R_NOTIFICACION (el conjunto fijo etiqueta legítima «Si tu reembolso es
-# aprobado, te avisaremos.»): solo condicional sobre el estado + «te avisaremos» (con «por correo/email/mensaje»
-# opcional, que el test estructural existente etiqueta legítimo). «te enviaremos/notificaremos...»
-# tras condicional, y «te avisaremos» tras negación/política, siguen bloqueadas.
-_AVISO_CONDICIONAL = re.compile(
-    r"\b(?:si|cuando|una\s+vez\s+que)\s+(?:(?:tu|su|el|la)\s+)?(?:" + _SUST_S + "|" + _CASO + r")\s+"
-    r"(?:es|sea|fue|queda|quede)\s+(?:ya\s+)?" + _PART_C + r"\s*,?\s*(?:te|le)\s+(?:avisaremos|avisare)"
-    r"(?:\s+por\s+(?:correo|email|mensaje))?(?=\s*[.!?]*\s*$)"
-)
 
 
 def _normalizar(texto: str) -> str:
@@ -174,7 +165,6 @@ def _normalizar(texto: str) -> str:
 
 
 def _neutralizar(texto: str) -> str:
-    texto = _AVISO_CONDICIONAL.sub(_NEUTRO, texto)
     for patron in (_NEG_EXCEPCION, _NEG_VERBO, _NEG_ESTADO, *_POLITICA):
         texto = patron.sub(_NEUTRO, texto)
     return texto

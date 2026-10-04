@@ -429,6 +429,16 @@ class Orquestador:
                     },
                     es_error=True,
                 ))
+                # Historial válido en proveedores reales: toda tool_call necesita su resultado.
+                mensajes.extend(
+                    _resultado(
+                        ll,
+                        {"error": "no ejecutada: corrige primero tu respuesta y vuelve a llamar a responder"},
+                        es_error=True,
+                    )
+                    for ll in llamadas
+                    if ll is not finales[0]
+                )
                 continue
             intento_tools = True
             for llamada in llamadas:

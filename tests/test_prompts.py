@@ -253,3 +253,42 @@ def test_prompt_garantia_por_categoria_y_producto_no_listado_sin_derivar():
         linea for linea in texto.splitlines() if linea.lower().startswith("- envíos:")
     ).lower()
     assert "destino" in envios and "capital" in envios
+
+
+def _plantillas_y_motivos() -> list[tuple[str, str]]:
+    from tiendahogar_agent.prompts import _MOTIVO_GENERICO, _MOTIVOS_ESCALAMIENTO
+
+    plantillas = Path(prompts.__file__).resolve().parent / "plantillas"
+    textos = [(a.name, a.read_text(encoding="utf-8")) for a in sorted(plantillas.glob("*.md"))]
+    textos += [(f"motivo:{k}", v) for k, v in _MOTIVOS_ESCALAMIENTO.items()]
+    return textos + [("motivo:generico", _MOTIVO_GENERICO)]
+
+
+def test_sin_supervisora_ni_equipo_supervisor_en_plantillas_y_motivos():
+    for nombre, texto in _plantillas_y_motivos():
+        assert not re.search(r"supervisora|persona supervisor|equipo supervisor", texto, re.IGNORECASE), nombre
+    from tiendahogar_agent.prompts import cargar_prompt_escalamiento
+
+    assert "un supervisor" in cargar_prompt_escalamiento("reembolso_alto")
+
+
+def test_prompt_exige_la_regla_exacta_del_documento_sin_derivar_ni_inventar_pasos():
+    texto = cargar_prompt_sistema()
+    vineta = next(
+        l for l in texto.splitlines() if l.lower().startswith("- regla exacta:")
+    ).lower()
+    for fragmento in [
+        "regla exacta", "responde la pregunta", "devoluci", "defecto cubierto por garantía",
+        "no derives", "revisión", "no esté en los documentos",
+    ]:
+        assert fragmento in vineta, fragmento
+    assert "{canal}" not in vineta
+
+
+def test_prompts_prohiben_relleno_condescendiente_y_promesas_de_tiempo():
+    from tiendahogar_agent.prompts import cargar_prompt_escalamiento
+
+    for texto in (cargar_prompt_sistema().lower(), cargar_prompt_escalamiento("otra").lower()):
+        assert "relleno condescendiente" in texto
+        assert "ten paciencia" in texto  # citado como ejemplo prohibido
+        assert "promesas de tiempo" in texto

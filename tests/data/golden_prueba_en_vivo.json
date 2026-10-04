@@ -163,5 +163,16 @@
     ],
     "notas": "Verificado contra doc3: los envíos a la capital tardan 2-3 días hábiles (a otras ciudades son 5-7). No mezclar los plazos de ambos destinos; la regla hecho_incorrecto (ADR-009) lo comprueba.",
     "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo2-08-lavadora-devolucion-defecto",
+    "pregunta": "Compré una lavadora hace 2 meses y dejó de centrifugar, ¿la puedo devolver?",
+    "accion_esperada": "responder",
+    "fuentes_esperadas": [
+      "doc1",
+      "doc2"
+    ],
+    "notas": "Verificado contra doc2: las devoluciones después de 30 días solo se aceptan si el producto tiene un defecto cubierto por garantía; y doc1: las lavadoras (electrodomésticos grandes) tienen 12 meses de garantía desde la compra, que cubre defectos de fábrica. Responder que sí aplica la regla de defecto cubierto por garantía, citando doc1 y doc2, sin derivar a soporte ni mencionar revisión u otros pasos que no estén en los documentos. No debe disparar hecho_incorrecto (30 días, 12 meses, lavadora).",
+    "origen": "prueba_en_vivo_2"
   }
 ]

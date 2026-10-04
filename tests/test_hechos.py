@@ -284,6 +284,33 @@ def test_reintento_corrige_y_entrega_la_segunda(retriever, caplog):
     assert PREGUNTA not in " ".join(registros)
 
 
+def test_reintento_responde_a_las_otras_tool_calls_del_mismo_mensaje(retriever):
+    from tiendahogar_agent.models import LlamadaTool, LLMResponse
+
+    mixto = LLMResponse(llamadas_tools=[
+        LlamadaTool(id="x1", nombre="buscar_politicas", argumentos={"consulta": "garantía"}),
+        LlamadaTool(
+            id="x2", nombre="responder",
+            argumentos={"respuesta": "Tu licuadora tiene 12 meses de garantía.", "fuentes": ["doc1"]},
+        ),
+        LlamadaTool(id="x3", nombre="consultar_estado_pedido", argumentos={"order_id": "ORD-1001"}),
+    ])
+    orq, llm = _orq(
+        retriever, mixto,
+        _responder("Tu licuadora, como electrodoméstico pequeño, tiene 6 meses de garantía."),
+    )
+    r = orq.procesar(PREGUNTA)
+    assert r.accion == "responder" and "6 meses" in r.respuesta and len(llm.llamadas) == 2
+    historial = [m for m in llm.llamadas[1]["mensajes"] if m["role"] in ("assistant", "tool")]
+    validar_historial(historial)  # todas las tool_calls tienen su resultado
+    resultados = {m["tool_call_id"]: m for m in historial if m["role"] == "tool"}
+    assert set(resultados) == {"x1", "x2", "x3"}
+    assert resultados["x2"]["es_error"] is True
+    assert json.loads(resultados["x2"]["content"])["error"] == "hecho_incorrecto"
+    for ident in ("x1", "x3"):
+        assert resultados[ident]["es_error"] is True and "responder" in resultados[ident]["content"]
+
+
 def test_dos_respuestas_incorrectas_dan_respuesta_segura_con_dos_llamadas(retriever, caplog):
     orq, llm = _orq(
         retriever,

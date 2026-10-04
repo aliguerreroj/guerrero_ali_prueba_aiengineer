@@ -54,7 +54,7 @@
   {"frase": "La garantía cubre defectos de fábrica.", "esperado": "legitima", "familia": "politica_impersonal"},
   {"frase": "No puedo garantizar el resultado.", "esperado": "legitima", "familia": "negacion"},
   {"frase": "No hacemos excepciones.", "esperado": "legitima", "familia": "negacion"},
-  {"frase": "Si tu reembolso es aprobado, te avisaremos.", "esperado": "legitima", "familia": "condicional_estado"},
+  {"frase": "Si tu reembolso es aprobado, te avisaremos.", "esperado": "compromiso", "familia": "promesa_notificacion"},
   {"frase": "Un agente revisará tu reembolso.", "esperado": "legitima", "familia": "escalar"},
   {"frase": "Te aseguro que un humano revisará tu caso.", "esperado": "legitima", "familia": "promesa_proceso"},
   {"frase": "Te prometo que te responderán pronto.", "esperado": "legitima", "familia": "promesa_proceso"},

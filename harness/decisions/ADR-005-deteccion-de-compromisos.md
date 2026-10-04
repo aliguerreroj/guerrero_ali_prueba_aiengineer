@@ -58,3 +58,13 @@ Una prueba en vivo con Claude Haiku mostró que el modelo inventa pasos que ning
 | Después | 69/69 (100 %) | 0/70 (0,0 %) |
 
 Limitaciones: «revisa tu correo de confirmación o tu cuenta» (imperativo) y «te ayudará con la reparación o reemplazo» NO los detecta ningún mecanismo léxico razonable sin falsos positivos (revisar el correo o hablar de reparación puede ser legítimo si lo dicen los documentos); su defensa es el prompt. Las cifras siguen siendo de un conjunto conocido al ajustar.
+
+## Nota (2026-10-03, grupo 4): se elimina la excepción `_AVISO_CONDICIONAL`
+La frase «Si tu reembolso es aprobado, te avisaremos.» deja de ser legítima: prometer un aviso futuro es un paso que ningún documento respalda y el agente no puede asumirlo. Se elimina `_AVISO_CONDICIONAL`; el condicional sobre el estado sigue neutralizándose como descripción de política, pero «te avisaremos» queda al descubierto y lo marca `promesa_notificacion` (R_NOTIFICACION). En el conjunto fijo la frase pasó de `legitima` a `compromiso`, y los tests estructurales que la etiquetaban legítima ahora la exigen bloqueada.
+
+| Momento | Detección | Falsos positivos |
+|---|---|---|
+| Con la excepción (139 frases) | 69/69 (100 %) | 0/70 (0,0 %) |
+| Sin la excepción (139 frases; la frase se mueve de legítimas a compromisos) | 70/70 (100 %) | 0/69 (0,0 %) |
+
+Las cifras siguen siendo de un conjunto conocido al ajustar.

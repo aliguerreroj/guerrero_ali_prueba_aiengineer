@@ -39,6 +39,11 @@ TEXTO_ESCALA = (
     "Lamento esa experiencia. Esto lo revisa nuestro equipo humano: escríbele a "
     "soporte@tiendahogar.example y te ayudarán."
 )
+RESP_LAVADORA = (
+    "Lamento que tu lavadora haya dejado de centrifugar. Sí puedes devolverla: pasados los 30 días "
+    "de la compra, el documento de devoluciones acepta el producto si tiene un defecto cubierto por "
+    "garantía, y las lavadoras tienen 12 meses de garantía desde la fecha de compra."
+)
 RESP_NO_EXISTE = "No encontré un pedido con el número ORD-9999. ¿Puedes revisar el número?"
 
 
@@ -238,6 +243,9 @@ def test_golden_de_la_segunda_prueba_se_cumple_con_fakellm(retriever):
         "vivo2-07-envio-capital": _responder(
             "Los envíos a la capital tardan 2-3 días hábiles.", ["doc3"]
         ),
+        # Regla exacta: tras 30 días se acepta si hay defecto cubierto por garantía (doc2) y la
+        # lavadora tiene 12 meses (doc1). Sin derivar a soporte; T10 (R_HECHO) no debe saltar.
+        "vivo2-08-lavadora-devolucion-defecto": _responder(RESP_LAVADORA, ["doc1", "doc2"]),
     }
     assert set(nuevos) == set(guiones)
     for id_caso, caso in nuevos.items():

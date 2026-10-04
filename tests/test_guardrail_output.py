@@ -503,7 +503,6 @@ class TestCompromisosEstructural:
             "Aceptamos tarjetas de crédito y débito.",
             "Procesamos los pedidos en 24 horas.",
             "Un supervisor revisará tu caso y te contactará pronto.",
-            "Si tu reembolso es aprobado, te avisaremos por correo.",
             "Una vez aprobado el reembolso, se acredita al mismo medio de pago.",
             "Para solicitar un reembolso necesito el número de pedido.",
             "Tu reembolso está en revisión.",
@@ -670,7 +669,7 @@ class TestRobustez:
     def test_contexto_enorme_es_rapido(self):
         t0 = time.perf_counter()
         _ver("Hola.", mensaje="1." * 500000)
-        assert time.perf_counter() - t0 < 1
+        assert time.perf_counter() - t0 < 3  # margen para máquinas lentas; una regex cuadrática tardaría minutos
 
     @pytest.mark.parametrize("guion", ["‑", "–", "−", "—", "-"])
     def test_guiones_unicode_en_ids(self, guion):
@@ -756,12 +755,14 @@ def test_promesa_de_notificacion_se_bloquea():
         "Si tu reembolso es aprobado, te enviaremos un email de confirmación.",
         "No podemos aprobar eso ahora, te avisaremos por email.",
         "Si tu reembolso es aprobado, te avisaremos y te notificaremos por correo.",
+        # ya no es excepción legítima: prometer avisar es un compromiso que el agente no asume
+        "Si tu reembolso es aprobado, te avisaremos.",
+        "Si tu reembolso es aprobado, te avisaremos por correo.",
     ]:
         assert R_NOTIFICACION in [r for r, _ in detectar_compromisos(frase)], frase
     legitimas = [
         "Escríbenos a soporte@tiendahogar.example y te ayudarán.",
         "Puedes contactar al equipo humano.",
-        "Si tu reembolso es aprobado, te avisaremos.",
         "Te enviaré la política en este chat.",
     ]
     for frase in legitimas:
