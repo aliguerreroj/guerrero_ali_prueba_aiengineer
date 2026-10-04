@@ -432,7 +432,7 @@
       "id": "T23",
       "fase": 5,
       "titulo": "Dockerfile + Makefile",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "opcional",
       "depende_de": [
         "T16"
@@ -442,8 +442,8 @@
         "Documentado en README"
       ],
       "verificacion": "docker build -t tiendahogar-agent .",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor: RECHAZADO 1 vez (faltaba documentar en README), corregido y APROBADO. Imagen final 1,08 GB en disco (359 MB comprimida). Menores: base e install sin fijar por digest/versiones; README usa --env-file .env que exige .env (docs/docker.md explica -e LLM_PROVIDER=fake)."
     },
     {
       "id": "T24",

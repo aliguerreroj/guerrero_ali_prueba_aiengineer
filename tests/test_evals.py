@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -308,6 +309,10 @@ def test_reporte_json_y_md_bien_formados_sin_pii_ni_claves(retriever, tmp_path):
     assert contenido_md.count("|") > 20  # tablas
 
 
+@pytest.mark.skipif(
+    shutil.which("git") is None or not (RAIZ / ".git").exists(),
+    reason="requiere git y el repositorio (no están en la imagen Docker)",
+)
 def test_resultados_no_esta_ignorado_por_git():
     r = subprocess.run(
         ["git", "check-ignore", "-q", "evals/resultados/2026-10-04-1200-modelo.json"],

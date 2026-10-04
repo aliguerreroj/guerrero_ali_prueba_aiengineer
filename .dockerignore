@@ -1,0 +1,18 @@
+# Secretos y material privado: NUNCA entran al contexto de build ni a la imagen
+.env
+.env.*
+!.env.example
+harness/context/
+
+# Entornos y cachés
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.git/
+
+# Datos de runtime
+logs/
+evals/resultados/
