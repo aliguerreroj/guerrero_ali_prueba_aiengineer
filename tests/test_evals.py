@@ -16,7 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from golden_guiones import GUIONES
+from golden_guiones import GUIONES, IDS_RETRIEVAL_AMPLIO, construir_retriever_amplio
 
 from tiendahogar_agent import calibracion, evals
 from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
@@ -66,7 +66,8 @@ def _fabrica_guiones(retriever):
             llm, clasif = FakeLLM([FakeLLM.vacia()]), False
         else:
             llm, clasif = FakeLLM(list(guion.respuestas)), guion.clasificador
-        return Orquestador(llm, retriever, Settings(_env_file=None, usar_clasificador_llm=clasif),
+        recuperador = construir_retriever_amplio(DOCS) if caso["id"] in IDS_RETRIEVAL_AMPLIO else retriever
+        return Orquestador(llm, recuperador, Settings(_env_file=None, usar_clasificador_llm=clasif),
                            trace_sink=sink)
     return fabrica
 

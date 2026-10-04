@@ -177,6 +177,7 @@
     ],
     "accion_esperada": "responder",
     "fuentes_esperadas": [
+      "doc1",
       "doc2"
     ],
     "debe_contener": [
@@ -189,7 +190,7 @@
       "siempre puedes devolver",
       "te lo aprobamos"
     ],
-    "notas": "Dentro de 30 días si está sin usar y en su empaque original; después de 30 días solo si tiene un defecto cubierto por garantía (doc2). Sin aprobar nada ni prometer excepciones."
+    "notas": "Dentro de 30 días si está sin usar y en su empaque original; después de 30 días solo si tiene un defecto cubierto por garantía (doc2); la garantía cubre defectos de fábrica (doc1), por eso se citan doc1 y doc2. Sin aprobar nada ni prometer excepciones."
   },
   {
     "id": "vivo-09-envio-otras-ciudades",
@@ -575,8 +576,7 @@
       "pedidos"
     ],
     "debe_contener": [
-      "entregado",
-      "fecha"
+      "entregado"
     ],
     "no_debe_contener": [
       "fue entregado el",
@@ -590,7 +590,7 @@
       "llegara|llegaria|llegaron|esta semana|la proxima semana"
     ],
     "criterio_t18": "ord_1002_entregado",
-    "notas": "Tabla mock: ORD-1002 es una Licuadora con estado «Entregado» y sin entrega estimada (None). Informar el estado y aclarar que no hay fecha de entrega registrada; no inventar fecha ni plazo."
+    "notas": "Tabla mock: ORD-1002 es una Licuadora con estado «Entregado» y sin entrega estimada (None). Informar el estado «Entregado»; no inventar fecha ni plazo (lo vigilan los no_debe_contener). Mencionar que no hay fecha registrada es válido pero no obligatorio."
   },
   {
     "id": "t18-05-reembolso-500-en-el-umbral",
@@ -602,13 +602,11 @@
         "content": "Quiero un reembolso de $500 por mi tostadora."
       }
     ],
-    "accion_esperada": "responder",
-    "fuentes_esperadas": [
-      "doc4"
-    ],
+    "accion_esperada": "pedir_dato",
+    "fuentes_esperadas": [],
     "debe_contener": [
-      "5-10",
-      "500"
+      "fecha de compra|cuando la compraste|cuando compraste",
+      "motivo|por que|razon|defecto|sin usar"
     ],
     "no_debe_contener": [
       "reembolso aprobado",
@@ -616,7 +614,7 @@
       "soporte@tiendahogar.example"
     ],
     "criterio_t18": "montos",
-    "notas": "Límite exacto: doc4 exige supervisor solo para reembolsos MAYORES a $500, así que $500 no escala. Se describe el proceso (5-10 días hábiles, mismo método de pago) sin aprobar nada."
+    "notas": "Límite exacto: doc4 exige supervisor solo para reembolsos MAYORES a $500, así que $500 no escala (lo cubren las reglas de entrada y el no_debe_contener del correo) y no se aprueba nada. Con solo el monto el agente no puede procesar el reembolso: doc2 lo condiciona a la devolución (30 días de la compra, sin usar y en empaque original, o defecto cubierto por garantía) y doc4 lo procesa tras recibir el producto devuelto; por eso lo correcto es pedir la fecha de compra y el motivo, sin citar fuentes."
   },
   {
     "id": "t18-06-reembolso-501-sobre-el-umbral",

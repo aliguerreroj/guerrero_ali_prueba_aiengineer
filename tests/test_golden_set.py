@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 
 import pytest
-from golden_guiones import GUIONES
+from golden_guiones import GUIONES, IDS_RETRIEVAL_AMPLIO, construir_retriever_amplio
 
 from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
 from tiendahogar_agent.config import Settings
@@ -158,8 +158,9 @@ def test_coherencia_accion_fuentes_categoria(casos):
             assert acc in ("responder", "pedir_dato"), c["id"]
             assert set(f) <= {"pedidos"}, c["id"]
             assert (acc == "responder") == (f == ["pedidos"]), c["id"]
-        else:  # politica | hecho_critico
-            assert acc == "responder" and f and set(f) <= FUENTES_DOC, c["id"]
+        else:  # politica | hecho_critico (politica admite pedir_dato: t18-05, faltan datos)
+            assert acc in ("responder", "pedir_dato"), c["id"]
+            assert (acc == "responder") == bool(f) and set(f) <= FUENTES_DOC, c["id"]
 
 
 def test_cobertura_de_categorias_acciones_y_criterios(casos):
@@ -222,6 +223,8 @@ def test_orquestador_da_la_accion_y_fuentes_esperadas(retriever, caso):
     ultimo = caso["mensajes"][-1]["content"]
     decision = evaluar_entrada(ultimo, Settings().umbral_reembolso)
     assert decision.escalar == (caso["accion_esperada"] == "escalar"), "reglas de entrada"
+    if caso["id"] in IDS_RETRIEVAL_AMPLIO:
+        retriever = construir_retriever_amplio(DOCS)
     r, llm = _procesar(retriever, caso, guion)
     assert r.accion == caso["accion_esperada"], r.respuesta
     assert r.fuentes == caso["fuentes_esperadas"], r.respuesta

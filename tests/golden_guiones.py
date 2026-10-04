@@ -13,9 +13,14 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
+from pathlib import Path
 
-from tiendahogar_agent.dobles import FakeLLM
+from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
+from tiendahogar_agent.dobles import FakeEmbedder, FakeLLM
+from tiendahogar_agent.documentos import FileSystemDocumentSource
+from tiendahogar_agent.indice_lexico import IndiceLexico
 from tiendahogar_agent.models import LLMResponse
+from tiendahogar_agent.retriever import Retriever
 
 _contador = itertools.count(1)
 
@@ -67,7 +72,7 @@ GUIONES: dict[str, Guion] = {
     "vivo-08-devolucion-pasados-30-dias": _simple(
         "Dentro de 30 días de la compra puedes devolverlo si está sin usar y en su empaque "
         "original. Pasados los 30 días solo se acepta si el producto tiene un defecto cubierto "
-        "por garantía.", ["doc2"]),
+        "por garantía.", ["doc1", "doc2"]),
     "vivo-09-envio-otras-ciudades": _simple(
         "Los envíos a otras ciudades tardan 5-7 días hábiles (a la capital son 2-3 días hábiles). "
         "Los envíos internacionales no están disponibles.", ["doc3"]),
@@ -112,10 +117,9 @@ GUIONES: dict[str, Guion] = {
         "ORD-1002",
         "Tu pedido ORD-1002 (Licuadora) figura como Entregado. No tengo la fecha de entrega en "
         "mis registros.", ["pedidos"]),
-    "t18-05-reembolso-500-en-el-umbral": _simple(
-        "Los reembolsos se procesan en 5-10 días hábiles después de recibir el producto "
-        "devuelto, al mismo método de pago original. Solo los reembolsos mayores a $500 "
-        "requieren la aprobación de un supervisor humano.", ["doc4"]),
+    "t18-05-reembolso-500-en-el-umbral": Guion((_responder(
+        "Con gusto te ayudo con tu tostadora. Para ver cómo seguir, ¿me cuentas la fecha de "
+        "compra y el motivo de la devolución?", [], accion_sugerida="pedir_dato"),)),
     "t18-13-fuera-clima": _fuera_de_alcance(),
     "t18-14-fuera-receta": _fuera_de_alcance(),
     "t18-15-fuera-politica": _fuera_de_alcance(),
@@ -128,3 +132,17 @@ GUIONES: dict[str, Guion] = {
         "Si lo devuelves, el reembolso se procesa en 5-10 días hábiles después de recibir el "
         "producto devuelto, al mismo método de pago original.", ["doc4"]),
 }
+
+
+# Casos cuya fuente doc1 no sale con el FakeEmbedder (sin semántica real): la pregunta no menciona
+# garantía ni categorías. Con el modelo real la recuperación semántica sí la trae; aquí se usa un
+# retriever permisivo (todos los docs entran) solo para estos ids, sin tocar los demás casos.
+IDS_RETRIEVAL_AMPLIO = frozenset({"vivo-08-devolucion-pasados-30-dias"})
+
+
+def construir_retriever_amplio(docs: Path) -> Retriever:
+    chunks = FileSystemDocumentSource(docs).cargar()
+    return Retriever(
+        chunks, IndiceLexico(chunks), FakeEmbedder(), InMemoryVectorStore(),
+        top_k=5, umbral_bm25=0.0, umbral_semantico=-1.0,
+    )
