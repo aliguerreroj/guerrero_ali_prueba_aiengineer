@@ -45,6 +45,11 @@ Cifras, decisiones:
   del contexto sí sustentan el número suelto (lenient). Fechas ISO (AAAA-MM-DD): se
   comparan completas; sus partes (año, mes, día) sustentan cifras sueltas del
   contexto («el 10 de octubre»).
+- Formato vs. cifra (hallazgo 2, 2026-10-04): el patrón de formato SIN dígitos («ORD-####»,
+  «ORD-XXXX») no es cifra ni id: describe cómo se escribe un número de pedido y no afirma
+  nada (el extractor de ids exige dígitos tras «ORD-», así que ya no lo detecta). Un
+  ejemplo con dígitos («ORD-1234», «ORD-0000») que no esté en el contexto SIGUE siendo
+  id/cifra sin sustento: equivale a inventar un pedido (deliberado).
 - Los marcadores de lista al inicio de línea («1.», «2)») de la respuesta se ignoran.
 - Limitaciones: no valida unidades ni el sentido de la cifra (solo que exista); los
   meses en letras no se convierten a número; «tres 5» o cifras pegadas a letras

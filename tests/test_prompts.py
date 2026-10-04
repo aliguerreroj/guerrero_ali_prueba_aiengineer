@@ -330,3 +330,35 @@ def test_prompt_sin_instrucciones_contradictorias_sobre_el_canal():
         j = next((k for k in range(i + 1, len(lineas)) if lineas[k].startswith("# ")), len(lineas))
         bloque = " ".join(lineas[i:j])
         assert "pedido inexistente" in bloque, ancla
+
+
+def _seccion(texto: str, titulo: str) -> str:
+    lineas = texto.splitlines()
+    i = next(k for k, l in enumerate(lineas) if l.strip().lower() == f"# {titulo}")
+    j = next((k for k in range(i + 1, len(lineas)) if lineas[k].startswith("# ")), len(lineas))
+    return "\n".join(lineas[i + 1:j]).lower()
+
+
+def test_prompt_prohibe_ejemplos_de_numeros_de_pedido():
+    """Hallazgo 2 (vivo-06): pedir el número sin inventar ni sugerir ninguno."""
+    texto = cargar_prompt_sistema()
+    herramientas = _seccion(texto, "herramientas")
+    for fragmento in [
+        "nunca des ejemplos de números de pedido",
+        "ord-####",
+        "nunca un número concreto",
+        "sin inventar ni sugerir ninguno",
+    ]:
+        assert fragmento in herramientas, fragmento
+    # el prompt no lleva ningún id concreto (ya lo exige test_prompt_sin_secretos_ni_cifras...)
+    assert not re.search(r"ORD-\d", texto)
+
+
+def test_prompt_fuera_de_alcance_cubre_calculos_y_no_resuelve():
+    """Hallazgo 2 (t18-16): cálculos y similares son ajenos; ni resultados parciales."""
+    fuera = _seccion(cargar_prompt_sistema(), "fuera de alcance")
+    for fragmento in [
+        "cálculos", "operaciones aritméticas", "traducciones", "código",
+        "no los resuelvas", "ni des resultados parciales", "redirige",
+    ]:
+        assert fragmento in fuera, fragmento

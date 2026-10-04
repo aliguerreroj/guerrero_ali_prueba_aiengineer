@@ -10,6 +10,9 @@ Reglas de diseño:
 - Cualquier fallo del clasificador (error del LLM, respuesta vacía, tool equivocada, args
   inválidos...) NO bloquea: devuelve «sin clasificación» y sigue la decisión de las reglas.
   Los logs no incluyen el mensaje del cliente.
+- Aritmética, traducciones, código y similares se clasifican `fuera_de_alcance` (prompt
+  `clasificador.md`, hallazgo 2, 2026-10-04): el orquestador responde con la plantilla
+  determinista sin llamar al bucle, así el agente nunca resuelve ni da el resultado.
 - Los bugs de programación (TypeError, AttributeError...) se propagan.
 """
 

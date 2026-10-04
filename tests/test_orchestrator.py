@@ -283,6 +283,16 @@ def test_clasificador_fuera_de_alcance_responde_con_plantilla(retriever):
     assert r.fuentes == [] and r.canal is None and len(llm.llamadas) == 1
 
 
+def test_aritmetica_fuera_de_alcance_responde_plantilla_sin_resultado(retriever):
+    """Hallazgo 2 (t18-16): la cuenta ajena no se resuelve ni llega al bucle del LLM."""
+    clasifica = _llamada(TOOL_CLASIFICAR, {"intencion": "fuera_de_alcance"})
+    orq, llm = _orq(retriever, clasifica, usar_clasificador_llm=True)
+    r = orq.procesar("¿Cuánto es 25 por 4?")
+    assert r.accion == "responder" and r.respuesta == MENSAJE_FUERA_DE_ALCANCE
+    assert "100" not in r.respuesta and "cien" not in r.respuesta.lower()
+    assert r.fuentes == [] and r.canal is None and len(llm.llamadas) == 1
+
+
 def test_clasificador_politica_sigue_al_bucle(retriever):
     clasifica = _llamada(TOOL_CLASIFICAR, {"intencion": "politica"})
     orq, llm = _orq(

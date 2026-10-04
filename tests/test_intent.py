@@ -283,3 +283,20 @@ def test_config_por_defecto_y_validacion(monkeypatch):
         Settings(max_tokens_clasificador=0)
     monkeypatch.setenv("USAR_CLASIFICADOR_LLM", "true")
     assert Settings().usar_clasificador_llm is True
+
+
+# ------------------------------------------------ aritmética = fuera de alcance (hallazgo 2)
+def test_prompt_clasificador_trata_aritmetica_como_fuera_de_alcance():
+    from tiendahogar_agent.prompts import _leer_plantilla
+
+    p = _leer_plantilla("clasificador.md").lower()
+    linea = next(l for l in p.splitlines() if l.startswith("- fuera_de_alcance"))
+    for fragmento in ["aritmética", "cálculos", "traducciones", "código", "aunque sea simple"]:
+        assert fragmento in linea, fragmento
+
+
+def test_aritmetica_clasificada_fuera_de_alcance_no_es_escalamiento():
+    llm = FakeLLM([_tool({"intencion": "fuera_de_alcance"})])
+    decision, intencion = aplicar_clasificador("¿Cuánto es 25 por 4?", SIN_REGLAS, llm, _s())
+    assert intencion is not None and intencion.intencion == "fuera_de_alcance"
+    assert decision.escalar is False
