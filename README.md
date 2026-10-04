@@ -86,6 +86,8 @@ python -m tiendahogar_agent.cli
 python -m uvicorn tiendahogar_agent.api:app --port 8000
 ```
 
+Déjalo corriendo en esta terminal y prueba desde otra. La primera vez puede tardar unos 10-15 s en estar listo; espera el mensaje «Application startup complete».
+
 Ejemplo con curl (bash):
 
 ```bash
@@ -94,10 +96,11 @@ curl -X POST http://localhost:8000/chat \
   -d '{"conversation_id": "demo-1", "mensaje": "¿Dónde está mi pedido ORD-1001?"}'
 ```
 
-Ejemplo con PowerShell:
+Ejemplo con PowerShell (en Windows PowerShell 5.1, `Invoke-RestMethod` decodifica la respuesta como Latin-1 y muestra mal las tildes, porque la API no declara el charset; por eso se decodifica a mano como UTF-8):
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/chat -ContentType "application/json; charset=utf-8" -Body (@{conversation_id="demo-1"; mensaje="¿Cuánto dura la garantía?"} | ConvertTo-Json)
+$r = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://localhost:8000/chat -ContentType "application/json; charset=utf-8" -Body (@{conversation_id="demo-1"; mensaje="¿Cuánto dura la garantía?"} | ConvertTo-Json)
+[Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray()) | ConvertFrom-Json
 ```
 
 También hay `GET /health` y Swagger en <http://localhost:8000/docs>. Detalle en [`docs/api.md`](docs/api.md).

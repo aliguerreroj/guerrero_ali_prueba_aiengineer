@@ -56,7 +56,8 @@ curl.exe -X POST http://localhost:8000/chat -H "Content-Type: application/json" 
 Como alternativa en PowerShell:
 
 ```
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/chat -ContentType "application/json; charset=utf-8" -Body (@{conversation_id="demo-1"; mensaje="¿Cuánto dura la garantía?"} | ConvertTo-Json)
+$r = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://localhost:8000/chat -ContentType "application/json; charset=utf-8" -Body (@{conversation_id="demo-1"; mensaje="¿Cuánto dura la garantía?"} | ConvertTo-Json)
+[Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray()) | ConvertFrom-Json
 ```
 
 ## Historial de conversación

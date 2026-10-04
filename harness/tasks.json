@@ -518,7 +518,7 @@
       "id": "T28",
       "fase": 6,
       "titulo": "Verificación desde un clone limpio",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T25",
@@ -530,8 +530,8 @@
         "Sin .env ni secretos; harness/context/ ausente del clone"
       ],
       "verificacion": "python harness/init.py",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO. Clon limpio en Windows: instalación, 1506 tests, CLI fake, API, MCP e init.py en verde; sin .env ni harness/context en el clon. Corregido el ejemplo de PowerShell (Latin-1 en 5.1). Docker no verificado (daemon apagado). Mac/Linux solo vía CI."
     }
   ]
 }

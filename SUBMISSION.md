@@ -124,7 +124,7 @@ Qué cubren, por área (según los archivos de `tests/`):
 - **Eventos y trazas:** `EscalationCreated` con clave de idempotencia, bus local sin duplicados, trazas JSONL.
 - **Harness y entrega:** `init.py`, runner de evals, Dockerfile y Makefile, workflow de CI.
 
-El CI (`.github/workflows/ci.yml`) corre `ruff check .` y `pytest tests/ -m "not integration"` en GitHub Actions sobre ubuntu y windows con Python 3.11 y 3.13, con `LLM_PROVIDER=fake` y sin secretos. Un primer run falló por tests de `init.py` que dependían de `.venv`; se corrigió en un commit posterior y **no se confirmó todavía un run completo en verde** en Actions (Linux y Python 3.11 no se probaron localmente).
+El CI (`.github/workflows/ci.yml`) corre `ruff check .` y `pytest tests/ -m "not integration"` en GitHub Actions sobre ubuntu y windows con Python 3.11 y 3.13, con `LLM_PROVIDER=fake` y sin secretos. Un primer run falló por tests de `init.py` que dependían de `.venv`; se corrigió en un commit posterior y, según lo confirmado por el autor, los 4 trabajos (ubuntu y windows, Python 3.11 y 3.13) quedaron en verde. Ese resultado no se volvió a comprobar desde la sesión de documentación, y Linux y Python 3.11 no se probaron localmente.
 
 **Qué mide y qué no el golden con FakeLLM.** Ahí el 100 % valida la lógica determinista (guardrails, orquestación, verificación, fallo seguro) con respuestas guionizadas; **no mide al LLM real**. Para eso existe el runner de evals con el modelo real.
 
@@ -192,7 +192,7 @@ Qué cambiaría además: ejecutar varias réplicas exige el historial externo y 
 - **Un solo proveedor real probado.** Solo se ejecutó con Claude Haiku 4.5. El adaptador de Azure OpenAI se probó únicamente con un SDK simulado, nunca contra un servicio real.
 - **Calibración con muestra pequeña.** Los umbrales se calibraron con 15 preguntas en dominio y 25 fuera de dominio escritas por el autor y 5 documentos; el coseno solapa entre grupos (margen -0,170) y 4 preguntas fuera de dominio traen chunks.
 - **Escala del corpus.** La búsqueda vectorial es lineal en memoria y el troceado recursivo no se calibró con documentos largos reales.
-- **Lo que no se verificó en esta máquina.** Los comandos con LLM real de la CLI, y Docker y `make` (Docker se verificó en una sesión de desarrollo con `LLM_PROVIDER=fake`, y `make` no está instalado en esta máquina: solo se validó con `make -n` en un contenedor). No se confirmó un run completo en verde en GitHub Actions, y la validación en clon limpio de todo el entregable queda para la tarea final.
+- **Lo que no se verificó en esta máquina.** Los comandos con LLM real de la CLI, y Docker y `make` (Docker se verificó en una sesión de desarrollo con `LLM_PROVIDER=fake`, y `make` no está instalado en esta máquina: solo se validó con `make -n` en un contenedor). El entregable sí se validó desde un clon limpio en Windows (venv, instalación, `python -m pytest tests/`, CLI en modo `fake`, API, handshake MCP e `init.py`); en Mac/Linux solo lo cubre el CI, y Docker no se volvió a verificar en esa pasada porque el daemon no estaba corriendo.
 - **Tests sensibles al tiempo.** Algunas pruebas de rendimiento (por ejemplo `test_pii::test_sin_redos` y `test_guardrail_input::test_rendimiento_entrada_larga`) fallaron alguna vez bajo carga de la máquina y pasaron al repetirlas; en CI sus topes se multiplican por 5.
 
 ## Tiempo invertido
