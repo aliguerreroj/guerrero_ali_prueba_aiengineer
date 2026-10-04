@@ -367,6 +367,8 @@ def test_cifra_inventada_queda_bloqueada(retriever):
     orq, _ = _orq(
         retriever, _buscar(),
         _responder("Las lavadoras tienen 24 meses de garantía.", ["doc1"]),
+        # ADR-009: la cifra contradice la tabla de hechos, hay un reintento y vuelve a fallar.
+        _responder("Las lavadoras tienen 24 meses de garantía.", ["doc1"]),
     )
     r = orq.procesar("¿Cuánto dura la garantía de mi lavadora?")
     assert r.accion == "escalar" and r.respuesta == RESPUESTA_SEGURA

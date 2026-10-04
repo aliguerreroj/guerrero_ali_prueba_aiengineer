@@ -14,6 +14,9 @@ Reglas (identificadores estables en `reglas_fallidas`):
 - `falta_canal_escalamiento`: si la acción es escalar, la respuesta nombra el canal.
 - `respuesta_demasiado_larga`: la respuesta supera MAX_CARACTERES_RESPUESTA (20 000); se
   falla seguro sin analizarla (el contexto se recorta a 100 000 caracteres por texto).
+- `hecho_incorrecto` (ADR-009): una cifra con unidad contradice la tabla de hechos de
+  `hechos.py` (garantía por categoría, envío por destino) o asigna garantía a un producto
+  no listado; `detalles` trae el hecho correcto, su doc_id y la frase de origen.
 - `respuesta_vacia`, `accion_invalida`: entradas inservibles (fallo seguro).
 
 Cifras, decisiones:
@@ -66,6 +69,7 @@ from tiendahogar_agent.guardrail_compromisos import (
     detectar_compromisos,
 )
 from tiendahogar_agent.guardrail_input import CANAL_ESCALAMIENTO
+from tiendahogar_agent.hechos import detectar_discrepancias
 from tiendahogar_agent.models import Accion, Chunk
 from tiendahogar_agent.texto import quitar_tildes
 
@@ -93,6 +97,9 @@ R_CANAL = "falta_canal_escalamiento"
 R_VACIA = "respuesta_vacia"
 R_ACCION = "accion_invalida"
 R_LARGA = "respuesta_demasiado_larga"
+R_HECHO = "hecho_incorrecto"
+# Los detalles de R_HECHO llevan este prefijo (el orquestador los reenvía al LLM en el reintento).
+PREFIJO_DETALLE_HECHO = "hecho incorrecto: "
 
 
 class ResultadoVerificacion(BaseModel):
@@ -430,6 +437,11 @@ def _verificar(
         if regla in por_regla:
             reglas.append(regla)
             detalles.append(f"compromiso no autorizado: «{por_regla[regla]}»")
+
+    discrepancias = detectar_discrepancias(texto)
+    if discrepancias:
+        reglas.append(R_HECHO)
+        detalles.extend(PREFIJO_DETALLE_HECHO + d.detalle() for d in discrepancias)
 
     if accion == "escalar" and CANAL_ESCALAMIENTO not in quitar_tildes(texto):
         reglas.append(R_CANAL)

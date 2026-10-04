@@ -62,7 +62,13 @@ from tiendahogar_agent.guardrail_input import (
     ResultadoGuardrail,
     evaluar_con_settings,
 )
-from tiendahogar_agent.guardrail_output import FUENTE_PEDIDOS, verificar_salida
+from tiendahogar_agent.guardrail_output import (
+    FUENTE_PEDIDOS,
+    PREFIJO_DETALLE_HECHO,
+    R_HECHO,
+    verificar_salida,
+)
+from tiendahogar_agent.hechos import detectar_discrepancias
 from tiendahogar_agent.mensajes import (
     mensaje_desde_respuesta,
     mensaje_resultado_tool,
@@ -219,6 +225,13 @@ class _Evidencia:
         return {"pedidos": list(self.pedidos)} if self.pedidos else None
 
 
+@dataclass(frozen=True)
+class _PedirCorreccion:
+    """La respuesta contradice un hecho de los documentos: se pide UNA corrección al LLM."""
+
+    detalles: tuple[str, ...]
+
+
 class Orquestador:
     """Atiende un mensaje del cliente y devuelve un `AgentResponse` (nunca lanza)."""
 
@@ -365,7 +378,13 @@ class Orquestador:
             mensajes.insert(2, {"role": "system", "content": reconsulta})
         recordado = False
         intento_tools = False
-        for _ in range(self._settings.max_iteraciones_llm):
+        # ADR-009: un solo reintento por turno ante `hecho_incorrecto`; no consume el tope de
+        # iteraciones (lo amplía en uno), de modo que nunca hay más de una llamada extra.
+        reintento_hecho_usado = False
+        limite = self._settings.max_iteraciones_llm
+        usadas = 0
+        while usadas < limite:
+            usadas += 1
             respuesta = llamar_llm_seguro(
                 self._llm, mensajes, self._settings, tools=self._tools, trace_id=trace_id,
                 tool_choice=TOOL_CHOICE_BUCLE,
@@ -389,9 +408,28 @@ class Orquestador:
                     "bucle_sin_respuesta", trace_id, detalle="más de una llamada a responder"
                 ).respuesta
             if finales and _error_argumentos_responder(finales[0].argumentos) is None:
-                return self._entregar(
-                    finales[0].argumentos, evidencia, usuario, trace_id, mensaje
+                entrega = self._entregar(
+                    finales[0].argumentos, evidencia, usuario, trace_id, mensaje,
+                    reintento_hecho_usado=reintento_hecho_usado,
                 )
+                if isinstance(entrega, AgentResponse):
+                    return entrega
+                reintento_hecho_usado = True
+                limite += 1
+                mensajes.append(_resultado(
+                    finales[0],
+                    {
+                        "error": "hecho_incorrecto",
+                        "instruccion": (
+                            "Tu respuesta contradice los documentos. Corrígela con el hecho "
+                            "correcto y su fuente (cita su doc_id en fuentes) y vuelve a llamar "
+                            "a responder."
+                        ),
+                        "hecho_correcto": entrega.detalles,
+                    },
+                    es_error=True,
+                ))
+                continue
             intento_tools = True
             for llamada in llamadas:
                 resultado = self._ejecutar(llamada, evidencia, trace_id)
@@ -493,7 +531,8 @@ class Orquestador:
         usuario: str,
         trace_id: str,
         mensaje: str = "",
-    ) -> AgentResponse:
+        reintento_hecho_usado: bool = False,
+    ) -> AgentResponse | _PedirCorreccion:
         sugerida = args.get("accion_sugerida")
         if sugerida is not None and sugerida not in ACCIONES_SUGERIBLES:
             logger.info(
@@ -521,11 +560,33 @@ class Orquestador:
             args["respuesta"].strip(), accion,  # type: ignore[arg-type]  # accion es una Accion válida
             fuentes, evidencia.chunks, evidencia.resultado_pedido, usuario,
         )
+        if R_HECHO in veredicto.reglas_fallidas and not reintento_hecho_usado:
+            # El hecho correcto sale de la tabla de hechos (texto literal de los documentos): se
+            # añade como evidencia para que la corrección pueda citarlo y sustentar su cifra.
+            discrepancias = detectar_discrepancias(args["respuesta"])
+            for d in discrepancias:
+                if d.hecho is not None:
+                    evidencia.agregar_chunks([Chunk(
+                        texto=d.hecho.frase_origen, doc_id=d.hecho.doc_id,
+                        metadatos={"origen": "tabla_de_hechos"},
+                    )])
+            logger.warning(
+                "hecho_incorrecto detectado, se reintenta una vez trace_id=%s hechos=%d",
+                trace_id, len(discrepancias),
+            )
+            return _PedirCorreccion(tuple(
+                d[len(PREFIJO_DETALLE_HECHO):] for d in veredicto.detalles
+                if d.startswith(PREFIJO_DETALLE_HECHO)
+            ))
+        if reintento_hecho_usado and R_HECHO in veredicto.reglas_fallidas:
+            logger.warning("reintento por hecho_incorrecto no resolvio trace_id=%s", trace_id)
         if not veredicto.ok:
             logger.warning(
                 "verificacion de salida fallida trace_id=%s reglas=%s",
                 trace_id, ",".join(veredicto.reglas_fallidas),
             )
+        elif reintento_hecho_usado:
+            logger.warning("reintento por hecho_incorrecto resuelto trace_id=%s", trace_id)
         return AgentResponse(
             respuesta=veredicto.respuesta,
             accion=veredicto.accion,

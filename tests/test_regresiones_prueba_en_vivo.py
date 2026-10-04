@@ -230,6 +230,14 @@ def test_golden_de_la_segunda_prueba_se_cumple_con_fakellm(retriever):
         "vivo2-05-canal-de-contacto": _responder(
             "Puedes escribir a soporte@tiendahogar.example para tus consultas.", ["doc5"]
         ),
+        # ADR-009: el microondas no figura en doc1; no se le asigna plazo.
+        "vivo2-06-microondas-no-listado": _responder(
+            "Gracias por preguntar. El microondas no aparece listado en la política de garantía, "
+            "así que prefiero no suponer un plazo para él.", ["doc1"]
+        ),
+        "vivo2-07-envio-capital": _responder(
+            "Los envíos a la capital tardan 2-3 días hábiles.", ["doc3"]
+        ),
     }
     assert set(nuevos) == set(guiones)
     for id_caso, caso in nuevos.items():

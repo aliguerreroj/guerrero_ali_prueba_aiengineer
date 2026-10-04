@@ -117,7 +117,12 @@ def test_cita_de_doc_no_recuperado_en_el_turno_sigue_fallando(retriever):
 
 
 def test_cifra_sin_sustento_en_el_turno_sigue_fallando(retriever):
-    orq, _ = _orq(retriever, _responder("Las licuadoras tienen 24 meses de garantía.", ["doc1"]))
+    # ADR-009: la cifra contradice la tabla de hechos, hay un reintento y vuelve a fallar.
+    orq, _ = _orq(
+        retriever,
+        _responder("Las licuadoras tienen 24 meses de garantía.", ["doc1"]),
+        _responder("Las licuadoras tienen 24 meses de garantía.", ["doc1"]),
+    )
     r = orq.procesar(LICUADORA)
     assert r.accion == "escalar" and r.respuesta == RESPUESTA_SEGURA
 

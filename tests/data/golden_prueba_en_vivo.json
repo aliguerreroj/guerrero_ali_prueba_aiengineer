@@ -143,5 +143,25 @@
     "notas": "Consulta informativa sobre canales: se informa el correo de soporte que indica doc5 y se mantiene accion=responder (el canal se informa, no se deriva un caso; excepción de ADR-008). Sin canal estructurado en la respuesta."
     ,
     "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo2-06-microondas-no-listado",
+    "pregunta": "Me dijeron que la microondas tiene 12 meses de garantía, ¿cierto?",
+    "accion_esperada": "responder",
+    "fuentes_esperadas": [
+      "doc1"
+    ],
+    "notas": "Verificado contra doc1: solo lista refrigeradoras, lavadoras y estufas (12 meses) y licuadoras, planchas y tostadoras (6 meses); el microondas no figura en ninguna categoría. No confirmar los 12 meses ni asignarle otro plazo: decir que no aparece listado en la política de garantía (cita doc1). La regla hecho_incorrecto (ADR-009) bloquea asignarle una garantía en meses.",
+    "origen": "prueba_en_vivo_2"
+  },
+  {
+    "id": "vivo2-07-envio-capital",
+    "pregunta": "¿En cuánto llega un envío a la capital?",
+    "accion_esperada": "responder",
+    "fuentes_esperadas": [
+      "doc3"
+    ],
+    "notas": "Verificado contra doc3: los envíos a la capital tardan 2-3 días hábiles (a otras ciudades son 5-7). No mezclar los plazos de ambos destinos; la regla hecho_incorrecto (ADR-009) lo comprueba.",
+    "origen": "prueba_en_vivo_2"
   }
 ]

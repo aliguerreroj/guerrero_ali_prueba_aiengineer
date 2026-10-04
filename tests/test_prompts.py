@@ -236,3 +236,20 @@ def test_prompt_escalamiento_prohibe_procesos_y_voseo():
     texto = cargar_prompt_escalamiento("otra").lower()
     assert "no menciones procesos" in texto
     assert "voseo" in texto
+
+
+def test_prompt_garantia_por_categoria_y_producto_no_listado_sin_derivar():
+    texto = cargar_prompt_sistema()
+    vineta = next(
+        linea for linea in texto.splitlines() if linea.lower().startswith("- garantía:")
+    ).lower()
+    assert "identifica la categoría" in vineta
+    assert "sin suponer" in vineta and "no aparece listado" in vineta
+    assert "cita la categoría y el `id`" in vineta
+    # un producto no listado no se deriva a soporte: la viñeta no nombra el canal
+    assert "soporte" not in vineta and "{canal}" not in vineta
+    assert "no derives el caso" in vineta
+    envios = next(
+        linea for linea in texto.splitlines() if linea.lower().startswith("- envíos:")
+    ).lower()
+    assert "destino" in envios and "capital" in envios
