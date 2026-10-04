@@ -1,18 +1,15 @@
 """Ayuda para los topes de tiempo de los tests de rendimiento.
 
-Los topes detectan regex de coste cuadrático (que tardarían órdenes de magnitud más). Bajo
-integración continua (variable de entorno `CI`) los runners compartidos son más lentos, así que
-el tope se multiplica por `FACTOR_CI`; fuera de CI no cambia nada.
+Los topes solo detectan comportamiento cuadrático o con backtracking catastrófico (que tardaría
+órdenes de magnitud más), no miden velocidad. Por eso son generosos siempre, en local y en CI:
+el tope base se multiplica por `FACTOR_TOPE` para que una máquina lenta o cargada no los rompa.
 """
 
 from __future__ import annotations
 
-import os
-
-FACTOR_CI = 5
+FACTOR_TOPE = 10
 
 
-def tope(segundos: float, entorno: dict[str, str] | None = None) -> float:
-    """Devuelve el tope en segundos, multiplicado por FACTOR_CI si la variable CI está presente."""
-    env = os.environ if entorno is None else entorno
-    return segundos * FACTOR_CI if env.get("CI") else segundos
+def tope(segundos: float) -> float:
+    """Devuelve el tope en segundos: el tope base multiplicado por FACTOR_TOPE."""
+    return segundos * FACTOR_TOPE

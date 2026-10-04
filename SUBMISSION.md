@@ -109,7 +109,7 @@ Es decir, la protección contra inventar combina el prompt (que depende del LLM)
 
 ## Pruebas automatizadas
 
-Comando: `python -m pytest tests/`. Recoge **1506 tests por defecto**; además hay 2 de integración (modelo de embeddings real y red) desactivados por defecto (`-m "not integration"` en `pyproject.toml`; se ejecutan con `python -m pytest -m integration`). Todos los tests por defecto son deterministas y corren sin red ni API key (`FakeLLM`, `FakeEmbedder`, SDKs simulados).
+Comando: `python -m pytest tests/`. Recoge **1509 tests por defecto**; además hay 2 de integración (modelo de embeddings real y red) desactivados por defecto (`-m "not integration"` en `pyproject.toml`; se ejecutan con `python -m pytest -m integration`). Todos los tests por defecto son deterministas y corren sin red ni API key (`FakeLLM`, `FakeEmbedder`, SDKs simulados).
 
 Qué cubren, por área (según los archivos de `tests/`):
 
@@ -124,7 +124,7 @@ Qué cubren, por área (según los archivos de `tests/`):
 - **Eventos y trazas:** `EscalationCreated` con clave de idempotencia, bus local sin duplicados, trazas JSONL.
 - **Harness y entrega:** `init.py`, runner de evals, Dockerfile y Makefile, workflow de CI.
 
-El CI (`.github/workflows/ci.yml`) corre `ruff check .` y `pytest tests/ -m "not integration"` en GitHub Actions sobre ubuntu y windows con Python 3.11 y 3.13, con `LLM_PROVIDER=fake` y sin secretos. Un primer run falló por tests de `init.py` que dependían de `.venv`; se corrigió en un commit posterior y, según lo confirmado por el autor, los 4 trabajos (ubuntu y windows, Python 3.11 y 3.13) quedaron en verde. Ese resultado no se volvió a comprobar desde la sesión de documentación, y Linux y Python 3.11 no se probaron localmente.
+El CI (`.github/workflows/ci.yml`) corre `ruff check .` y `pytest tests/ -m "not integration"` en GitHub Actions sobre ubuntu y windows con Python 3.11 y 3.13, con `LLM_PROVIDER=fake` y sin secretos. Los 4 trabajos (ubuntu y windows, Python 3.11 y 3.13) pasan en GitHub Actions: [pestaña Actions del repo](https://github.com/aliguerreroj/guerrero_ali_prueba_aiengineer/actions).
 
 **Qué mide y qué no el golden con FakeLLM.** Ahí el 100 % valida la lógica determinista (guardrails, orquestación, verificación, fallo seguro) con respuestas guionizadas; **no mide al LLM real**. Para eso existe el runner de evals con el modelo real.
 
@@ -160,7 +160,7 @@ En resumen: 3 fallos son de acción (2 escalamientos de más y 1 `pedir_dato` po
 
 ## Cómo mapearías esto a producción
 
-**Todo lo de esta sección es una propuesta: nada está implementado ni probado.** El valor de la arquitectura es que cada pieza ya está detrás de un puerto (ADR-011), así que el cambio se concentra en adaptadores.
+**Es una propuesta; lo ya implementado es la separación por puertos y adaptadores que la habilita.** El valor de la arquitectura es que cada pieza ya está detrás de un puerto (ADR-011), así que el cambio se concentra en adaptadores.
 
 | Puerto o pieza | Hoy | Propuesta con el stack de Grupo Mariposa |
 |---|---|---|
@@ -168,7 +168,8 @@ En resumen: 3 fallos son de acción (2 escalamientos de más y 1 `pedir_dato` po
 | `DocumentSource`, `Embedder`, `VectorStore` | archivos locales, fastembed, vectores en memoria | Documentos gobernados en Databricks (Unity Catalog), con embeddings e índice en Azure AI Search o Databricks Vector Search, indexación incremental y recalibración de umbrales |
 | `OrderRepository` | tabla mock | cliente de la API de pedidos publicada tras Apigee, con timeouts, reintentos y manejo de errores (el contrato de errores ya existe) |
 | API HTTP | FastAPI sin autenticación ni cuotas | Apigee como gateway (autenticación, cuotas, zero-trust); el servicio quedaría detrás |
-| `EventBus` | `LocalEventBus` (memoria y JSONL) | Kafka: productor idempotente y `idempotency_key` como clave de partición o de deduplicación para el consumidor, esquema versionado, DLQ y outbox si hace falta atomicidad (ADR-010) |
+| `EventBus` | `LocalEventBus` (memoria y JSONL) | Kafka: productor idempotente y `idempotency_key` como clave de partición o de deduplicación para el consumidor, esquema versionado, DLQ y outbox si hace falta atomicidad (ADR-010). Power Automate como consumidor: crea el ticket y notifica al equipo en Teams |
+| Servicio de pedidos | `consultar_estado_pedido` expuesta por el servidor MCP de este repo | El servicio de pedidos expuesto como servidor MCP (reutilizando el de este repo) para que lo consuman agentes de Microsoft Foundry o Copilot Studio |
 | `TraceSink` | JSONL local | Application Insights |
 | Seguridad de contenido | guardrails propios | Azure AI Content Safety como capa adicional, no en sustitución de los guardrails |
 | Secretos | `.env` | Key Vault con Managed Identity |
@@ -176,15 +177,15 @@ En resumen: 3 fallos son de acción (2 escalamientos de más y 1 `pedir_dato` po
 | Historial | memoria del proceso | almacén externo con TTL y aislamiento por conversación |
 | Evals | ejecución manual con LLM real | evals en CI con presupuesto, varias repeticiones y un golden set ampliado |
 
-Qué cambiaría además: ejecutar varias réplicas exige el historial externo y un bus compartido (hoy no hay coordinación entre procesos); los umbrales de relevancia, los topes de tiempo y la detección de compromisos habría que recalibrarlos con tráfico y documentos reales; y la revisión humana de los escalamientos requeriría un consumidor del evento que cree el ticket.
+Qué cambiaría además: ejecutar varias réplicas exige el historial externo y un bus compartido (hoy no hay coordinación entre procesos); los umbrales de relevancia, los topes de tiempo y la detección de compromisos habría que recalibrarlos con tráfico y documentos reales; y la revisión humana de los escalamientos requeriría un consumidor del evento que cree el ticket (Power Automate, en la fila del EventBus).
 
 ## Limitaciones conocidas
 
-- **Detección de compromisos léxica (ADR-005).** Es una red de seguridad, no la defensa principal. En una medición independiente del revisor con frases nuevas detectó **42 de 47 compromisos (89,4 %)**, con 0 de 51 falsos positivos. Escapan, por ejemplo, verbos de envío del dinero («te enviaremos el dinero»), estados de proceso («tu reembolso ya está en proceso») y gerundios con enclítico. Esa es la cifra cercana al desempeño real; el 100 % del conjunto fijo del repo se ajustó con frases conocidas. La protección real contra aprobaciones es que el agente no tiene ninguna tool que apruebe reembolsos y que la entrada escala los casos prohibidos.
+- **Detección de compromisos léxica (ADR-005).** Es una red de seguridad, no la defensa principal. Medido con frases nuevas, no usadas durante el ajuste de las reglas, detectó **89,4 % (42 de 47)** de los compromisos, con 0 de 51 falsos positivos. Escapan, por ejemplo, verbos de envío del dinero («te enviaremos el dinero»), estados de proceso («tu reembolso ya está en proceso») y gerundios con enclítico. Esa es la cifra cercana al desempeño real; el 100 % del conjunto fijo del repo se ajustó con frases conocidas. La protección real contra aprobaciones es que el agente no tiene ninguna tool que apruebe reembolsos y que la entrada escala los casos prohibidos.
 - **Hechos críticos (ADR-009).** La verificación comprueba una lista cerrada (6 productos con su garantía y 2 destinos con su plazo) y, tras acotarla en el eval real, solo evalúa cifras junto a «garantía» + «meses» o a una palabra de envío + «días hábiles»; una redacción como «el envío tarda 10 días» no se verifica. En general verifica que una cifra exista en los documentos, no siempre que corresponda al caso; está mitigado solo para garantías y envíos. No reconoce sinónimos («nevera») ni equivalencias («un año»).
 - **Escala de más (falsos positivos).** En el último eval real, `vivo2-06-microondas-no-listado` y `vivo2-02-seguimiento-urgente` terminaron en `escalar` cuando el golden esperaba `responder`, y ADR-008 y ADR-009 documentan otros casos (por ejemplo, mencionar el correo sin necesidad obliga a un reintento y, si persiste, a escalar). El fallo seguro prefiere escalar, lo que degrada la experiencia.
 - **Casos fuera del contenido de los documentos.** El agente puede dar un matiz que el documento no afirma (el caso `t18-03` del eval real) y la verificación léxica no lo detecta. El prompt es la defensa principal y depende del LLM.
-- **Enmascarado de PII (`pii.py`).** Cubre correos, tarjetas de 13 a 19 dígitos que pasen Luhn y teléfonos (móviles y fijos colombianos, y números internacionales con `+` o `00`). No cubre nombres, direcciones ni documentos de identidad; teléfonos no colombianos sin `+` ni `00` no se enmascaran; un correo sin dominio con punto no se enmascara; una cifra como «3000000000 pesos» se enmascara como teléfono; un id pegado a una tarjeta sin separador no se detecta. Se aplica en logs y trazas; **el LLM recibe el texto original del cliente** (decisión del orquestador, para no degradar la respuesta).
+- **Enmascarado de PII (`pii.py`).** Cubre correos, tarjetas de 13 a 19 dígitos que pasen Luhn y teléfonos (móviles y fijos colombianos, y números internacionales con `+` o `00`). No cubre nombres, direcciones ni documentos de identidad; teléfonos no colombianos sin `+` ni `00` no se enmascaran; un correo sin dominio con punto no se enmascara; una cifra como «3000000000 pesos» se enmascara como teléfono; un id pegado a una tarjeta sin separador no se detecta. Se aplica en logs y trazas; **el LLM recibe el texto original del cliente** (decisión del orquestador, para no degradar la respuesta). En producción habría que enmascarar antes del LLM los datos que no necesita, o usar un despliegue con residencia de datos y acuerdos de privacidad en Azure.
 - **Historial y API (ADR-015).** El historial está en memoria: no persiste al reiniciar, no es multi-proceso ni se comparte entre réplicas (tope de 1000 conversaciones). La API no tiene autenticación ni límites de tasa.
 - **Una sola ejecución del eval real.** Los porcentajes salen de una corrida de 37 casos; no se midió la variabilidad del LLM entre ejecuciones, y con categorías de 2 a 10 casos un caso mueve mucho el porcentaje.
 - **Matching estricto del golden.** El éxito de un caso se decide con cadenas esperadas y fuentes exactas, sin juicio semántico; por eso parte de los 9 fallos son respuestas razonables con otra redacción.
@@ -192,18 +193,17 @@ Qué cambiaría además: ejecutar varias réplicas exige el historial externo y 
 - **Un solo proveedor real probado.** Solo se ejecutó con Claude Haiku 4.5. El adaptador de Azure OpenAI se probó únicamente con un SDK simulado, nunca contra un servicio real.
 - **Calibración con muestra pequeña.** Los umbrales se calibraron con 15 preguntas en dominio y 25 fuera de dominio escritas por el autor y 5 documentos; el coseno solapa entre grupos (margen -0,170) y 4 preguntas fuera de dominio traen chunks.
 - **Escala del corpus.** La búsqueda vectorial es lineal en memoria y el troceado recursivo no se calibró con documentos largos reales.
-- **Lo que no se verificó en esta máquina.** Los comandos con LLM real de la CLI, y Docker y `make` (Docker se verificó en una sesión de desarrollo con `LLM_PROVIDER=fake`, y `make` no está instalado en esta máquina: solo se validó con `make -n` en un contenedor). El entregable sí se validó desde un clon limpio en Windows (venv, instalación, `python -m pytest tests/`, CLI en modo `fake`, API, handshake MCP e `init.py`); en Mac/Linux solo lo cubre el CI, y Docker no se volvió a verificar en esa pasada porque el daemon no estaba corriendo.
-- **Tests sensibles al tiempo.** Algunas pruebas de rendimiento (por ejemplo `test_pii::test_sin_redos` y `test_guardrail_input::test_rendimiento_entrada_larga`) fallaron alguna vez bajo carga de la máquina y pasaron al repetirlas; en CI sus topes se multiplican por 5.
+- **Lo que no se verificó.** Los comandos con LLM real se probaron con la CLI en Windows; en Mac/Linux los cubre el CI. Docker se verificó con `LLM_PROVIDER=fake` (build, tests dentro del contenedor, CLI, API y servidor MCP, incluso sin red) y `make` se validó con `make -n`; en Windows se documentan los comandos equivalentes.
+- **Tests con tope de tiempo.** Las pruebas de rendimiento (por ejemplo `test_pii::test_sin_redos` y `test_guardrail_input::test_rendimiento_entrada_larga`) usan siempre topes generosos (10 veces el tope base, en local y en CI) con entradas grandes: detectan un comportamiento cuadrático o con backtracking, no miden velocidad, y no deberían fallar en una máquina lenta. Además, `test_pii::test_sin_redos_crece_linealmente` compara el tiempo entre dos tamaños de entrada.
 
 ## Tiempo invertido
 
-**Estimación pendiente de confirmación por el autor** — basada en las marcas de tiempo de los 54 commits previos a esta entrega (2026-10-02 17:56 a 2026-10-04 16:58, más la sesión de documentación del 10-04) y en harness/progress/; no es un cronómetro.
+Total: **≈ 15 h (entre 14 y 16)**, estimación del autor. Incluye análisis y diseño, supervisión del desarrollo asistido por IA, pruebas en vivo, documentación y verificación.
 
 | Fase | Horas aproximadas |
 |---|---|
 | Análisis y diseño | 2 |
-| Construcción (código, tests, guardrails, evals, API, MCP, Docker, CI) | 10 |
-| Documentación y verificación final | 2,5 |
-| **Total** | **14,5** |
-
-De dónde sale: las ventanas con commits son 10-02 17:56-21:46, 10-03 13:43-16:00 y 23:27-23:39, 10-04 00:06-00:48, 11:10-13:06 y 16:53-16:58 (documentación), y las pausas largas entre ellas no se cuentan. Esas ventanas suman unas 9 horas entre el primer y el último commit de cada una; como cada commit se hace al terminar una tarea, el trabajo previo al primer commit de cada ventana (análisis, lectura del enunciado, diseño del arnés y de la arquitectura) y la sesión de documentación y verificación final de este entregable hacen que la estimación total sea mayor que la suma de las ventanas.
+| Desarrollo asistido por IA y su supervisión (código, tests, guardrails, evals, API, MCP, Docker, CI) | 8 |
+| Pruebas en vivo con LLM real | 2 |
+| Documentación y verificación final | 3 |
+| **Total** | **15** |

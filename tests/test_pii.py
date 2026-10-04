@@ -159,6 +159,22 @@ def test_sin_redos(texto):
     assert time.perf_counter() - t0 < tope(0.5)
 
 
+@pytest.mark.parametrize("unidad", ["1 ", "a@", "a."], ids=["unos_espacio", "arroba", "punto"])
+def test_sin_redos_crece_linealmente(unidad):
+    """Cuadruplicar la entrada no debe multiplicar el tiempo por mucho más de 4 (cuadrático: 16)."""
+
+    def medir(n):
+        mejor = float("inf")
+        for _ in range(3):
+            t0 = time.perf_counter()
+            enmascarar_pii(unidad * n)
+            mejor = min(mejor, time.perf_counter() - t0)
+        return mejor
+
+    chico, grande = medir(10000), medir(40000)
+    assert grande < max(chico * 12, 0.05)
+
+
 @pytest.mark.parametrize(
     "tarjeta",
     [

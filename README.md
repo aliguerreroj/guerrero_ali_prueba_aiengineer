@@ -123,7 +123,7 @@ python -m ruff check .
 python harness/init.py
 ```
 
-`python -m pytest tests/ --collect-only -q` informa «1506/1508 tests collected (2 deselected)»: 1506 tests por defecto, deterministas (FakeLLM, sin red ni API key), y 2 de integración deshabilitados por defecto. Esos 2 se ejecutan a propósito con `python -m pytest -m integration`; usan red (descargan el modelo de embeddings y hacen una llamada mínima real al LLM, que requiere clave).
+`python -m pytest tests/ --collect-only -q` informa «1509/1511 tests collected (2 deselected)»: 1509 tests por defecto, deterministas (FakeLLM, sin red ni API key), y 2 de integración deshabilitados por defecto. Esos 2 se ejecutan a propósito con `python -m pytest -m integration`; usan red (descargan el modelo de embeddings y hacen una llamada mínima real al LLM, que requiere clave).
 
 `python harness/init.py` verifica el entorno, los checksums de los documentos, ruff y pytest.
 
@@ -184,7 +184,7 @@ El proyecto se desarrolló con asistencia de IA (Claude Code) bajo supervisión 
 
 - [`AGENTS.md`](AGENTS.md) fija las reglas del repo y el flujo de trabajo.
 - `harness/tasks.json` lista las tareas con sus criterios y su verificación; los agentes solo actualizan estado y notas.
-- `harness/progress/` guarda un registro por sesión.
-- Hooks en `.claude/hooks/`: `protect_files` bloquea editar los documentos, sus checksums, el contexto privado y `.env`; `pre_commit_gate` ejecuta `harness/init.py` antes de cada `git commit` y lo bloquea si falla; `session_context` muestra al iniciar la sesión los últimos commits, el último registro de progreso y las tareas pendientes.
+- `harness/progress/` guarda un registro por jornada de trabajo.
+- Hooks en `.claude/hooks/`: `protect_files` bloquea editar los documentos, sus checksums, el contexto privado y `.env`; `pre_commit_gate` ejecuta `harness/init.py` antes de cada `git commit` y lo bloquea si falla; `session_context` muestra al iniciar el trabajo los últimos commits, el último registro de progreso y las tareas pendientes.
 - `harness/init.py` comprueba el entorno, los checksums de los documentos, `ruff` y `pytest`.
-- Cada tarea sigue el flujo lector → implementador → revisor, con subagentes en `.claude/agents/`; el revisor trabaja con contexto limpio y puede rechazar.
+- Cada tarea sigue el flujo lector → implementador → revisión adversarial, con subagentes en `.claude/agents/`; la revisión se hace con contexto limpio y puede rechazar la tarea.

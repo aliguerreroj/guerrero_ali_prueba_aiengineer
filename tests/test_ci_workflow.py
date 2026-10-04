@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
-from tiempos import FACTOR_CI, tope
+from tiempos import FACTOR_TOPE, tope
 
 RAIZ = Path(__file__).resolve().parent.parent
 RUTA = RAIZ / ".github" / "workflows" / "ci.yml"
@@ -70,7 +70,6 @@ def test_marcador_integration_existe_en_pyproject():
     assert "integration:" in (RAIZ / "pyproject.toml").read_text(encoding="utf-8")
 
 
-def test_tope_multiplica_solo_bajo_ci():
-    assert tope(2, {}) == 2
-    assert tope(2, {"CI": "true"}) == 2 * FACTOR_CI
-    assert FACTOR_CI >= 2
+def test_tope_es_generoso_siempre():
+    assert tope(2) == 2 * FACTOR_TOPE
+    assert FACTOR_TOPE >= 5
