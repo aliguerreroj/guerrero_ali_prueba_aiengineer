@@ -501,7 +501,7 @@
       "id": "T27",
       "fase": 6,
       "titulo": "ADRs restantes",
-      "estado": "pendiente",
+      "estado": "hecha",
       "prioridad": "obligatoria",
       "depende_de": [
         "T14"
@@ -511,8 +511,8 @@
         "Siguen la plantilla de harness/decisions/"
       ],
       "verificacion": "python harness/init.py",
-      "revisado_por_revisor": false,
-      "notas": ""
+      "revisado_por_revisor": true,
+      "notas": "Revisor APROBADO. ADR-011 a 017 e índice README. Menores: ADR-014 añade una sección fuera de plantilla; el umbral de relevancia queda en ADR-004 y el de reembolso (500) se menciona en ADR-012 sin ADR propio."
     },
     {
       "id": "T28",
