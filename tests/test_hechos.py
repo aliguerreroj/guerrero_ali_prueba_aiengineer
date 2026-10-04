@@ -358,13 +358,15 @@ def test_reintento_microondas_a_no_listado(retriever):
         retriever,
         _responder("El microondas tiene 12 meses de garantía."),
         _responder(
-            f"El microondas no aparece listado en la política de garantía, así que prefiero no "
-            f"suponer un plazo; escríbenos a {CANAL_ESCALAMIENTO}.",
+            "El microondas no aparece listado en la política de garantía, así que prefiero no "
+            "suponer un plazo para él.",
             fuentes=("doc1",),
         ),
     )
     r = orq.procesar("Me dijeron que el microondas tiene 12 meses de garantía, ¿cierto?")
+    # Sin mencionar soporte (canal_innecesario, ADR-008 acotado): responde, sin escalar.
     assert len(llm.llamadas) == 2 and "no aparece listado" in r.respuesta
+    assert r.accion == "responder"
 
 
 # ------------------------------------------------------ grupos coordinados

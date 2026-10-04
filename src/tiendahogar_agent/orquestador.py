@@ -16,8 +16,11 @@ Flujo de `Orquestador.procesar` (el sistema decide la acción; el LLM solo redac
    id de pedido en el mensaje. Iteraciones agotadas o tool-calls inválidos son una falla real.
 7. Regla de acción: base `responder`; `accion_sugerida` del LLM solo se acepta si lleva hacia el
    lado más seguro (responder < pedir_dato < escalar). Nunca anula una decisión del sistema.
-   Además (ADR-008): si el texto remite a soporte@tiendahogar.example o cita doc5, la acción sube a
+   Además (ADR-008, acotado tras el eval real de T19): si la respuesta cita doc5, la acción sube a
    `escalar`, salvo que el cliente pregunte por los canales de contacto (`pregunta_por_canal`).
+   Nombrar soporte@tiendahogar.example SIN citar doc5 ya no escala por sí solo: T10 lo marca como
+   `canal_innecesario` (acción responder/pedir_dato) y se hace UN reintento por turno pidiendo
+   quitar la mención; si persiste, se escala con el texto del LLM (lado seguro, sin plantilla).
 8. `verificar_salida` corre siempre antes de entregar; si no pasa, se escala con su respuesta.
 
 Decisiones:
@@ -64,8 +67,10 @@ from tiendahogar_agent.guardrail_input import (
     evaluar_con_settings,
 )
 from tiendahogar_agent.guardrail_output import (
+    FUENTE_CANALES,
     FUENTE_PEDIDOS,
     PREFIJO_DETALLE_HECHO,
+    R_CANAL_INNECESARIO,
     R_HECHO,
     verificar_salida,
 )
@@ -117,9 +122,8 @@ _PATRON_PEDIDO = re.compile(r"ord\s*-?\s*\d", re.IGNORECASE)
 _PATRON_ID_ESTRICTO = re.compile(r"(?<![A-Za-z0-9])ORD-[0-9]{4}(?![0-9])", re.IGNORECASE | re.ASCII)
 MAX_IDS_RECONSULTA = 3
 _ERRORES_DE_DATO = ("no_encontrado", "formato_invalido")
-FUENTE_CANALES = "doc5"
 # Excepción de ADR-008: el cliente PREGUNTA por los canales/medios de contacto (texto sin tildes).
-# Acotada a propósito; ante la duda no aplica y la respuesta que remite a soporte escala.
+# Acotada a propósito; ante la duda no aplica y la respuesta que cita doc5 escala.
 _PREGUNTA_CANAL = re.compile(
     r"\bcanal(?:es)?\b|\bcontact(?:o|os|ar|arlos|arnos|arlo|arte)\b|\bcomunicarme\b|\btelefono\b"
     r"|\bcorreo\s+de\s+soporte\b|\bhorario\s+de\s+atencion\b"
@@ -189,11 +193,6 @@ def pregunta_por_canal(mensaje: str) -> bool:
     return bool(_PREGUNTA_CANAL.search(quitar_tildes(mensaje)))
 
 
-def _remite_al_canal_humano(texto: str, fuentes: list[str]) -> bool:
-    """El texto nombra el canal humano (sin tildes ni mayúsculas) o la respuesta cita doc5."""
-    return CANAL_ESCALAMIENTO in quitar_tildes(texto) or FUENTE_CANALES in fuentes
-
-
 def _resumir(texto: str) -> str:
     """Texto enmascarado y acotado para logs."""
     return enmascarar_pii(texto)[:_MAX_CARACTERES_LOG]
@@ -235,9 +234,10 @@ class _Evidencia:
 
 @dataclass(frozen=True)
 class _PedirCorreccion:
-    """La respuesta contradice un hecho de los documentos: se pide UNA corrección al LLM."""
+    """La respuesta incumple una regla corregible (`R_HECHO` o `R_CANAL_INNECESARIO`): UNA corrección."""
 
     detalles: tuple[str, ...]
+    regla: str = R_HECHO
 
 
 class Orquestador:
@@ -412,6 +412,8 @@ class Orquestador:
         # ADR-009: un solo reintento por turno ante `hecho_incorrecto`; no consume el tope de
         # iteraciones (lo amplía en uno), de modo que nunca hay más de una llamada extra.
         reintento_hecho_usado = False
+        # Reintento propio e independiente para `canal_innecesario` (acotación de ADR-008).
+        reintento_canal_usado = False
         limite = self._settings.max_iteraciones_llm
         usadas = 0
         while usadas < limite:
@@ -446,14 +448,24 @@ class Orquestador:
                 entrega = self._entregar(
                     finales[0].argumentos, evidencia, usuario, trace_id, mensaje,
                     reintento_hecho_usado=reintento_hecho_usado,
+                    reintento_canal_usado=reintento_canal_usado,
                 )
                 if isinstance(entrega, AgentResponse):
                     return entrega
-                reintento_hecho_usado = True
                 limite += 1
-                mensajes.append(_resultado(
-                    finales[0],
-                    {
+                if entrega.regla == R_CANAL_INNECESARIO:
+                    reintento_canal_usado = True
+                    contenido: dict[str, Any] = {
+                        "error": R_CANAL_INNECESARIO,
+                        "instruccion": (
+                            f"Tu respuesta menciona {CANAL_ESCALAMIENTO} sin que el cliente lo "
+                            "necesite. No remitas a soporte: reescribe la respuesta sin esa "
+                            "mención y vuelve a llamar a responder."
+                        ),
+                    }
+                else:
+                    reintento_hecho_usado = True
+                    contenido = {
                         "error": "hecho_incorrecto",
                         "instruccion": (
                             "Tu respuesta contradice los documentos. Corrígela con el hecho "
@@ -461,9 +473,8 @@ class Orquestador:
                             "a responder."
                         ),
                         "hecho_correcto": entrega.detalles,
-                    },
-                    es_error=True,
-                ))
+                    }
+                mensajes.append(_resultado(finales[0], contenido, es_error=True))
                 # Historial válido en proveedores reales: toda tool_call necesita su resultado.
                 mensajes.extend(
                     _resultado(
@@ -581,6 +592,7 @@ class Orquestador:
         trace_id: str,
         mensaje: str = "",
         reintento_hecho_usado: bool = False,
+        reintento_canal_usado: bool = False,
     ) -> AgentResponse | _PedirCorreccion:
         sugerida = args.get("accion_sugerida")
         if sugerida is not None and sugerida not in ACCIONES_SUGERIBLES:
@@ -595,12 +607,25 @@ class Orquestador:
             # sigue verificando cifras y las demás fuentes.
             fuentes = [f for f in fuentes if f != FUENTE_PEDIDOS]
             logger.info("fuente pedidos retirada (sin pedido valido) trace_id=%s", trace_id)
-        if _remite_al_canal_humano(args["respuesta"], fuentes) and not pregunta_por_canal(mensaje):
-            # ADR-008: si el texto remite a soporte, la acción debe decirlo (solo sube, nunca baja).
-            # Si no trae el canal, verificar_salida (R_CANAL) lo cambia por la respuesta segura.
+        if FUENTE_CANALES in fuentes and not pregunta_por_canal(mensaje):
+            # ADR-008 (acotado): citar doc5 es remitir al canal humano, la acción debe decirlo (solo
+            # sube, nunca baja). Si el texto no trae el canal, verificar_salida (R_CANAL) lo cambia
+            # por la respuesta segura. Nombrar el correo sin doc5 NO escala aquí (ver abajo).
             if accion != "escalar":
                 logger.info("remision a soporte detectada: se escala trace_id=%s", trace_id)
             accion = accion_mas_segura(accion, "escalar")
+        if (
+            reintento_canal_usado
+            and accion != "escalar"
+            and FUENTE_CANALES not in fuentes
+            and CANAL_ESCALAMIENTO in quitar_tildes(args["respuesta"])
+        ):
+            # El reintento persiste: lado seguro. Se acepta el texto del LLM (ya trae el canal)
+            # con acción `escalar`; las demás reglas de T10 siguen aplicando.
+            logger.warning(
+                "canal_innecesario persiste tras el reintento: se escala trace_id=%s", trace_id
+            )
+            accion = "escalar"
         if not fuentes and evidencia.solo_errores_de_dato_en_turno:
             # Solo hubo ids inexistentes/inválidos y no se cita nada: la respuesta necesariamente
             # pide revisar el número. Lado seguro: pedir_dato (entre responder y escalar).
@@ -608,6 +633,7 @@ class Orquestador:
         veredicto = verificar_salida(
             args["respuesta"].strip(), accion,  # type: ignore[arg-type]  # accion es una Accion válida
             fuentes, evidencia.chunks, evidencia.resultado_pedido, usuario,
+            canal_solicitado=pregunta_por_canal(mensaje),
         )
         _registrar_reglas_fallidas(veredicto.reglas_fallidas)
         if R_HECHO in veredicto.reglas_fallidas and not reintento_hecho_usado:
@@ -626,12 +652,25 @@ class Orquestador:
             )
             traza = traza_actual()
             if traza is not None:
-                traza.reintentos = 1
+                traza.reintentos += 1
             return _PedirCorreccion(tuple(
                 d[len(PREFIJO_DETALLE_HECHO):] for d in veredicto.detalles
                 if d.startswith(PREFIJO_DETALLE_HECHO)
             ))
-        if reintento_hecho_usado and R_HECHO in veredicto.reglas_fallidas:
+        hecho_persiste = reintento_hecho_usado and R_HECHO in veredicto.reglas_fallidas
+        if (
+            R_CANAL_INNECESARIO in veredicto.reglas_fallidas
+            and not reintento_canal_usado
+            and not hecho_persiste  # saldría la respuesta segura igualmente: no gastar otra llamada
+        ):
+            logger.warning(
+                "canal_innecesario detectado, se reintenta una vez trace_id=%s", trace_id
+            )
+            traza = traza_actual()
+            if traza is not None:
+                traza.reintentos += 1
+            return _PedirCorreccion((), R_CANAL_INNECESARIO)
+        if hecho_persiste:
             logger.warning("reintento por hecho_incorrecto no resolvio trace_id=%s", trace_id)
         if not veredicto.ok:
             marcar_respaldo()
@@ -639,8 +678,14 @@ class Orquestador:
                 "verificacion de salida fallida trace_id=%s reglas=%s",
                 trace_id, ",".join(veredicto.reglas_fallidas),
             )
-        elif reintento_hecho_usado:
-            logger.warning("reintento por hecho_incorrecto resuelto trace_id=%s", trace_id)
+        else:
+            if reintento_hecho_usado:
+                logger.warning("reintento por hecho_incorrecto resuelto trace_id=%s", trace_id)
+            if reintento_canal_usado:
+                logger.warning(
+                    "reintento por canal_innecesario cerrado trace_id=%s accion=%s",
+                    trace_id, veredicto.accion,
+                )
         return AgentResponse(
             respuesta=veredicto.respuesta,
             accion=veredicto.accion,

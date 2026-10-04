@@ -276,8 +276,16 @@ def test_pedido_inexistente_bien_formado_pide_dato_sin_soporte(retriever):
     assert r.accion == "pedir_dato" and "soporte" not in r.respuesta.lower()
 
 
-def test_adr008_sigue_escalando_si_cita_soporte_fuera_de_pregunta_de_canal(retriever):
+def test_adr008_acotado_correo_sin_doc5_se_reintenta_y_no_escala_si_se_quita(retriever):
     texto = "No encontré ORD-9999. Escribe a soporte@tiendahogar.example para verificar tu cuenta."
-    orq, _ = _orq(retriever, _responder(texto, []))
+    orq, llm = _orq(retriever, _responder(texto, []), _responder(RESP_NO_EXISTE, []))
     r = orq.procesar("¿Y el pedido ORD-9999?")
-    assert r.accion == "escalar"  # ADR-008 intacto: por eso el prompt prohíbe esa salida genérica
+    assert r.accion == "pedir_dato" and "soporte" not in r.respuesta.lower()
+    assert len(llm.llamadas) == 2
+
+
+def test_adr008_acotado_si_el_reintento_persiste_escala(retriever):
+    texto = "No encontré ORD-9999. Escribe a soporte@tiendahogar.example para verificar tu cuenta."
+    orq, llm = _orq(retriever, _responder(texto, []), _responder(texto, []))
+    r = orq.procesar("¿Y el pedido ORD-9999?")
+    assert r.accion == "escalar" and r.respuesta == texto and len(llm.llamadas) == 2

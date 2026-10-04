@@ -1,4 +1,5 @@
-"""ADR-008: la acción final es coherente con el texto (remitir a soporte = escalar).
+"""ADR-008 (acotado): la acción final es coherente con el texto (citar doc5 = escalar; el correo
+sin doc5 es `canal_innecesario`: un reintento y, si persiste, escalar).
 
 Todo con FakeLLM, sin red ni API key.
 """
@@ -13,7 +14,7 @@ import pytest
 from tiendahogar_agent.adaptadores.almacen_memoria import InMemoryVectorStore
 from tiendahogar_agent.cli import construir_orquestador
 from tiendahogar_agent.config import Settings
-from tiendahogar_agent.dobles import FakeEmbedder, FakeLLM
+from tiendahogar_agent.dobles import FakeEmbedder, FakeLLM, FakeTraceSink
 from tiendahogar_agent.documentos import FileSystemDocumentSource
 from tiendahogar_agent.guardrail_output import RESPUESTA_SEGURA
 from tiendahogar_agent.indice_lexico import IndiceLexico
@@ -56,35 +57,91 @@ def _procesar(retriever, mensaje, *respuestas):
 
 
 # ---------------------------------------------------------------- remisión en el texto
-def test_texto_que_remite_a_soporte_escala_con_canal(retriever):
-    texto = f"Para eso, escríbele a {CANAL} y te ayudarán."
-    r, _ = _procesar(
-        retriever, "Mi microondas llegó con un golpe, ¿qué hago?",
-        _responder(texto, [], accion_sugerida="responder"),
+MSG_GOLPE = "Mi microondas llegó con un golpe, ¿qué hago?"
+LIMPIO = "Lamento lo del golpe; cuéntame cómo llegó el empaque y vemos qué sigue."
+
+
+def test_correo_sin_doc5_se_reintenta_y_si_el_llm_lo_quita_responde(retriever):
+    r, llm = _procesar(
+        retriever, MSG_GOLPE,
+        _responder(f"Para eso, escríbele a {CANAL} y te ayudarán.", []),
+        _responder(LIMPIO, []),
     )
-    assert r.accion == "escalar" and r.canal == CANAL and CANAL in r.respuesta
+    assert r.accion == "responder" and r.canal is None and CANAL not in r.respuesta
+    assert len(llm.llamadas) == 2  # exactamente una llamada extra
+    assert "canal_innecesario" in str(llm.llamadas[1]["mensajes"][-1])
 
 
-def test_remision_se_detecta_sin_tildes_ni_mayusculas(retriever):
-    r, _ = _procesar(
-        retriever, "Mi microondas llegó con un golpe, ¿qué hago?",
+def test_reintento_se_detecta_sin_tildes_ni_mayusculas(retriever):
+    r, llm = _procesar(
+        retriever, MSG_GOLPE,
         _responder("Escribe a SOPORTE@TiendaHogar.Example por favor.", []),
+        _responder(LIMPIO, []),
     )
+    assert r.accion == "responder" and len(llm.llamadas) == 2
+
+
+def test_reintento_persiste_escala_con_el_texto_del_llm(retriever):
+    texto = f"Para eso, escríbele a {CANAL} y te ayudarán."
+    r, llm = _procesar(
+        retriever, MSG_GOLPE, _responder(texto, []), _responder(texto, []),
+    )
+    assert len(llm.llamadas) == 2  # nunca más de una llamada extra
     assert r.accion == "escalar" and r.canal == CANAL
+    assert r.respuesta == texto and r.respuesta != RESPUESTA_SEGURA
+
+
+def test_reintento_persiste_pero_otras_reglas_siguen_aplicando(retriever):
+    texto = f"Te lo devolvemos en 99 días, escríbele a {CANAL}."
+    r, _ = _procesar(retriever, MSG_GOLPE, _responder(texto, []), _responder(texto, []))
+    assert r.accion == "escalar" and r.respuesta == RESPUESTA_SEGURA
+
+
+def test_cita_doc5_escala_sin_reintento(retriever):
+    r, llm = _procesar(
+        retriever, "Tengo un tema de facturación raro con mi compra",
+        _responder(f"Escríbele a {CANAL}.", ["doc5"]),
+    )
+    assert r.accion == "escalar" and r.canal == CANAL and len(llm.llamadas) == 1
 
 
 def test_cita_doc5_sin_email_en_texto_escala_con_plantilla_segura(retriever):
     """Comportamiento definido: acción escalar, y como el texto no trae el canal R_CANAL lo reemplaza."""
     msg = "Tengo un tema de facturación raro con mi compra"
-    r, _ = _procesar(retriever, msg, _responder("Eso lo ve un agente humano.", ["doc5"]))
-    assert r.accion == "escalar" and r.canal == CANAL
+    r, llm = _procesar(retriever, msg, _responder("Eso lo ve un agente humano.", ["doc5"]))
+    assert r.accion == "escalar" and r.canal == CANAL and len(llm.llamadas) == 1
     assert r.respuesta == RESPUESTA_SEGURA and CANAL in r.respuesta
 
 
-def test_cita_doc5_con_email_en_texto_escala(retriever):
-    msg = "Tengo un tema de facturación raro con mi compra"
-    r, _ = _procesar(retriever, msg, _responder(f"Escríbele a {CANAL}.", ["doc5"]))
-    assert r.accion == "escalar" and r.canal == CANAL
+def test_sugerida_escalar_con_correo_no_dispara_reintento(retriever):
+    r, llm = _procesar(
+        retriever, MSG_GOLPE,
+        _responder(f"Escríbele a {CANAL}.", [], accion_sugerida="escalar"),
+    )
+    assert r.accion == "escalar" and r.canal == CANAL and len(llm.llamadas) == 1
+
+
+def test_el_reintento_queda_en_la_traza(retriever):
+    sink = FakeTraceSink()
+    llm = FakeLLM([
+        _responder(f"Escríbele a {CANAL}.", []),
+        _responder(LIMPIO, []),
+    ])
+    orq = Orquestador(llm, retriever, Settings(usar_clasificador_llm=False), trace_sink=sink)
+    orq.procesar(MSG_GOLPE)
+    traza = sink.trazas[-1]
+    assert traza["reintentos"] == 1
+    assert "canal_innecesario" in traza["reglas_fallidas"]
+
+
+def test_hecho_y_canal_fallan_juntos_se_atiende_primero_hecho(retriever):
+    r, llm = _procesar(
+        retriever, "¿Cuánto dura la garantía de una licuadora?",
+        _responder(f"Tu licuadora tiene 12 meses de garantía; escríbele a {CANAL}.", ["doc1"]),
+        _responder(f"Tu licuadora tiene 6 meses de garantía; escríbele a {CANAL}.", ["doc1"]),
+        _responder("Tu licuadora tiene 6 meses de garantía.", ["doc1"]),
+    )
+    assert len(llm.llamadas) == 3 and r.accion == "responder" and CANAL not in r.respuesta
 
 
 # ---------------------------------------------------------------- excepción: pregunta de canal

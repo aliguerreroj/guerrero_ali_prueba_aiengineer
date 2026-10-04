@@ -17,6 +17,12 @@ Reglas (identificadores estables en `reglas_fallidas`):
 - `hecho_incorrecto` (ADR-009): una cifra con unidad contradice la tabla de hechos de
   `hechos.py` (garantía por categoría, envío por destino) o asigna garantía a un producto
   no listado; `detalles` trae el hecho correcto, su doc_id y la frase de origen.
+- `canal_innecesario` (T10, acotación de ADR-008): si la acción es `responder` o `pedir_dato` y el
+  texto menciona el canal de soporte (sin tildes ni mayúsculas) sin citar `doc5` en `fuentes`,
+  la regla falla (el cliente no necesitaba que lo remitan). Con `escalar` no aplica, ni cuando el
+  llamador indica `canal_solicitado=True` (el cliente pregunta por los canales de contacto). El
+  orquestador la atiende con UN reintento; llamando a `verificar_salida` directamente es un
+  fallo seguro más.
 - `respuesta_vacia`, `accion_invalida`: entradas inservibles (fallo seguro).
 
 Cifras, decisiones:
@@ -98,6 +104,9 @@ R_VACIA = "respuesta_vacia"
 R_ACCION = "accion_invalida"
 R_LARGA = "respuesta_demasiado_larga"
 R_HECHO = "hecho_incorrecto"
+R_CANAL_INNECESARIO = "canal_innecesario"
+# Fuente que documenta los canales de contacto: citarla justifica nombrar el canal.
+FUENTE_CANALES = "doc5"
 # Los detalles de R_HECHO llevan este prefijo (el orquestador los reenvía al LLM en el reintento).
 PREFIJO_DETALLE_HECHO = "hecho incorrecto: "
 
@@ -377,10 +386,13 @@ def verificar_salida(
     chunks: list[Chunk],
     resultado_tool: dict | None,
     mensaje_usuario: str,
+    canal_solicitado: bool = False,
 ) -> ResultadoVerificacion:
     """Verifica la respuesta candidata. Nunca lanza; ante cualquier duda, escala."""
     try:
-        return _verificar(respuesta, accion, fuentes, chunks, resultado_tool, mensaje_usuario)
+        return _verificar(
+            respuesta, accion, fuentes, chunks, resultado_tool, mensaje_usuario, canal_solicitado
+        )
     except Exception as exc:  # noqa: BLE001  defensa final: fallo seguro = escalar
         _log.error("fallo inesperado al verificar la salida: %s", type(exc).__name__)
         return _fallo(["error_verificacion"], [f"error interno al verificar: {type(exc).__name__}"])
@@ -393,6 +405,7 @@ def _verificar(
     chunks: list[Chunk],
     resultado_tool: dict | None,
     mensaje_usuario: str,
+    canal_solicitado: bool = False,
 ) -> ResultadoVerificacion:
     texto = _texto_de(respuesta)
     reglas: list[str] = []
@@ -446,6 +459,18 @@ def _verificar(
     if accion == "escalar" and CANAL_ESCALAMIENTO not in quitar_tildes(texto):
         reglas.append(R_CANAL)
         detalles.append(f"la respuesta no incluye el canal {CANAL_ESCALAMIENTO}")
+
+    if (
+        accion in ("responder", "pedir_dato")
+        and not canal_solicitado
+        and CANAL_ESCALAMIENTO in quitar_tildes(texto)
+        and FUENTE_CANALES not in fuentes_ok
+    ):
+        reglas.append(R_CANAL_INNECESARIO)
+        detalles.append(
+            f"la respuesta menciona {CANAL_ESCALAMIENTO} sin necesidad (acción {accion} y sin citar "
+            f"{FUENTE_CANALES})"
+        )
 
     if reglas:
         return _fallo(reglas, detalles)

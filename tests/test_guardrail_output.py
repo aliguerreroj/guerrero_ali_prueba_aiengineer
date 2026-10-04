@@ -806,3 +806,44 @@ def test_fuente_pedidos_con_error_de_la_tool_no_es_valida():
 def test_pedidos_no_habilita_documentos_ajenos():
     r = _ver(_TEXTO_PEDIDO, fuentes=["pedidos", "doc4"], tool=_PEDIDO_OK)
     assert not r.ok and "fuente_no_recuperada" in r.reglas_fallidas
+
+
+# ------------------------------------------------- canal_innecesario (acotación de ADR-008)
+_CON_CANAL = f"Para ese caso, escríbele a {CANAL_ESCALAMIENTO} y te ayudarán."
+
+
+def test_canal_innecesario_responder_con_correo_sin_doc5_falla():
+    r = _ver(_CON_CANAL, accion="responder", fuentes=[])
+    assert _falla(r, "canal_innecesario")
+    assert any("sin necesidad" in d for d in r.detalles)
+
+
+def test_canal_innecesario_pedir_dato_con_correo_sin_doc5_falla():
+    assert _falla(_ver(_CON_CANAL, accion="pedir_dato", fuentes=[]), "canal_innecesario")
+
+
+def test_canal_innecesario_se_detecta_sin_tildes_ni_mayusculas():
+    r = _ver(f"Escribe a {CANAL_ESCALAMIENTO.upper()} por favor.", accion="responder")
+    assert _falla(r, "canal_innecesario")
+
+
+def test_canal_con_doc5_citado_no_falla_esta_regla():
+    r = _ver(
+        _CON_CANAL, accion="responder", fuentes=["doc5"], chunks=[_chunk("Canales.", "doc5")]
+    )
+    assert "canal_innecesario" not in r.reglas_fallidas
+
+
+def test_canal_innecesario_no_aplica_a_escalar():
+    r = _ver(_CON_CANAL, accion="escalar", fuentes=[])
+    assert r.ok and "canal_innecesario" not in r.reglas_fallidas
+
+
+def test_sin_correo_no_falla_canal_innecesario():
+    r = _ver("Tienes 12 meses de garantía.", "La garantía es de 12 meses.", accion="responder")
+    assert r.ok
+
+
+def test_canal_solicitado_exime_la_regla():
+    r = verificar_salida(_CON_CANAL, "responder", [], [], None, "", canal_solicitado=True)
+    assert r.ok
