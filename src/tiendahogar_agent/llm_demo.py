@@ -8,6 +8,8 @@ API key. No es un modelo: no razona ni inventa; solo encadena las tools del orqu
   `buscar_politicas`) y responde con el comienzo del primer fragmento, citando su `id`. Sin
   documentos relevantes responde con el mensaje amable de fuera de alcance (`responder`, sin
   fuentes ni escalar).
+- Si el mensaje es solo un saludo simple («hola», «buenas tardes»…): responde con un saludo amable
+  que presenta en qué puede ayudar (`responder`, sin fuentes).
 Es independiente de `dobles` (que es solo para tests); `EmbedderConstante` evita descargar modelos
 de embeddings: con umbral semántico imposible el retriever queda en la práctica solo en BM25.
 """
@@ -26,6 +28,16 @@ from tiendahogar_agent.orquestador import MENSAJE_FUERA_DE_ALCANCE
 
 _PEDIDO = re.compile(r"ORD\s*-?\s*\d{4}", re.IGNORECASE)
 _DOCUMENTO = re.compile(r'<documento id="([^"]*)" fuente="[^"]*">\n(.*?)\n</documento>', re.DOTALL)
+_SALUDO = re.compile(
+    r"^\W*(?:hola+|holi+|hey|buenas|buen(?:os)?\s+d[ií]as?|buenas\s+(?:tardes|noches)|saludos"
+    r"|qu[eé]\s+tal|hello|hi)(?:\s+(?:a\s+todos|equipo|tiendahogar|de\s+nuevo))?\W*$",
+    re.IGNORECASE,
+)
+MENSAJE_SALUDO = (
+    "¡Hola! Soy el asistente de soporte de TiendaHogar. Puedo ayudarte con dudas de garantía, "
+    "devoluciones, envíos, reembolsos y canales de contacto, o consultar el estado de un pedido "
+    "si me compartes su número. ¿En qué te puedo ayudar?"
+)
 _MAX_CARACTERES_FRAGMENTO = 400
 _RECORDATORIO_PREFIJO = "Recuerda entregar tu respuesta final"
 UMBRAL_SEMANTICO_IMPOSIBLE = 2.0  # el coseno nunca supera 1
@@ -72,6 +84,8 @@ class LLMDemo:
         if pedido:
             digitos = pedido.group(0)[-4:]
             return self._llamada("consultar_estado_pedido", {"order_id": f"ORD-{digitos}"})
+        if _SALUDO.match(usuario):
+            return self._responder(MENSAJE_SALUDO, [], None)
         return self._responder(*self._redactar_politica(mensajes))
 
     # ------------------------------------------------------------------ interno

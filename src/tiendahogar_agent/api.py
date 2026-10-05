@@ -28,6 +28,7 @@ from collections import OrderedDict
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from tiendahogar_agent.cli import construir_orquestador
@@ -130,6 +131,11 @@ def crear_app(
             if estado["orquestador"] is None:
                 estado["orquestador"] = construir_orquestador(settings or cargar_settings())
             return estado["orquestador"]
+
+    @app.get("/", include_in_schema=False)
+    def raiz() -> RedirectResponse:
+        """Quien abre la raíz en el navegador llega a la documentación interactiva."""
+        return RedirectResponse(url="/docs")
 
     @app.get("/health")
     def health() -> dict[str, str]:

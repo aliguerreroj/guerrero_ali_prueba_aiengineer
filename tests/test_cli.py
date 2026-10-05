@@ -256,6 +256,27 @@ def test_construir_orquestador_fake_no_usa_embeddings_reales(sin_red):
     assert type(orq._llm).__name__ == "LLMDemo"
 
 
+@pytest.mark.parametrize(
+    "saludo", ["hola", "Hola!", "¡Hola!", "buenas tardes", "Buenos días", "hey", "Buenas noches."]
+)
+def test_demo_saluda_con_saludo_simple(sin_red, saludo):
+    from tiendahogar_agent.llm_demo import MENSAJE_SALUDO
+    from tiendahogar_agent.orquestador import MENSAJE_FUERA_DE_ALCANCE
+
+    resp = construir_orquestador(Settings(llm_provider="fake")).procesar(saludo, [])
+    assert resp.accion == "responder"
+    assert resp.respuesta == MENSAJE_SALUDO != MENSAJE_FUERA_DE_ALCANCE
+    assert resp.fuentes == []
+
+
+@pytest.mark.parametrize("texto", ["hola, ¿cuánto dura la garantía?", "cuéntame un chiste", "hola ORD-1001"])
+def test_demo_no_trata_como_saludo_lo_que_trae_contenido(sin_red, texto):
+    from tiendahogar_agent.llm_demo import MENSAJE_SALUDO
+
+    resp = construir_orquestador(Settings(llm_provider="fake")).procesar(texto, [])
+    assert resp.respuesta != MENSAJE_SALUDO
+
+
 def test_modulo_ejecutable_con_python_m(tmp_path):
     r = subprocess.run(
         [sys.executable, "-m", "tiendahogar_agent.cli", "--una-vez", "ORD-1003"],

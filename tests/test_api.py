@@ -74,6 +74,14 @@ def test_health():
     assert r.status_code == 200 and r.json() == {"status": "ok"}
 
 
+def test_raiz_redirige_a_docs_y_no_aparece_en_openapi():
+    cliente = TestClient(crear_app(OrqEco()))
+    r = cliente.get("/", follow_redirects=False)
+    assert r.status_code in (302, 307) and r.headers["location"] == "/docs"
+    assert cliente.get("/").status_code == 200  # tras seguir la redirección llega a /docs
+    assert "/" not in cliente.get("/openapi.json").json()["paths"]
+
+
 def test_docs_responde_200():
     assert TestClient(crear_app(OrqEco())).get("/docs").status_code == 200
 
