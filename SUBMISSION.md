@@ -9,21 +9,21 @@ flowchart TD
     subgraph Entradas
         CLI["CLI de chat"]
         API["API HTTP (FastAPI)"]
-        MCP["Servidor MCP (solo la tool de pedidos)"]
+        MCP["Servidor MCP<br/>(solo tool de pedidos)"]
     end
 
     CLI --> ORQ
     API --> ORQ
 
     subgraph ORQ["Orquestador (procesar)"]
-        G1["Guardrail de entrada determinista"]
-        C1["Clasificador LLM (solo puede añadir escalamientos)"]
-        ESC["Escalamiento: el LLM redacta sin tools; si falla o no cumple, plantilla por categoría"]
-        FA["Fuera de alcance: plantilla amable sin LLM"]
-        RAG["RAG híbrido en cada turno + reconsulta de pedidos ORD-####"]
-        BUCLE["LLM con tools: buscar_politicas, consultar_estado_pedido, responder (bucle acotado)"]
-        VER["Verificación de salida: cifras, fuentes, compromisos, hechos críticos, canal innecesario (un reintento)"]
-        SEG["Fallo seguro: escalar con el canal de soporte"]
+        G1["Guardrail de entrada<br/>(determinista)"]
+        C1["Clasificador LLM<br/>(solo añade escalamientos)"]
+        ESC["Escalamiento<br/>(LLM o plantilla)"]
+        FA["Fuera de alcance<br/>(plantilla sin LLM)"]
+        RAG["RAG híbrido por turno<br/>+ reconsulta de pedidos"]
+        BUCLE["LLM con tools<br/>(bucle acotado)"]
+        VER["Verificación de salida<br/>(un reintento)"]
+        SEG["Fallo seguro<br/>(escalar a soporte)"]
 
         G1 --> C1
         C1 -->|"algo escala"| ESC
@@ -36,13 +36,13 @@ flowchart TD
     end
 
     MCP --> PED
-    BUCLE --> PED["OrderRepository (mock de pedidos)"]
-    RAG --> RET["Retriever: BM25 + embeddings + RRF"]
-    VER --> RESP["Respuesta: texto, acción, fuentes, canal, trace_id"]
+    BUCLE --> PED["OrderRepository<br/>(mock de pedidos)"]
+    RAG --> RET["Retriever<br/>(BM25 + embeddings + RRF)"]
+    VER --> RESP["Respuesta: texto, acción,<br/>fuentes, canal, trace_id"]
     FA --> RESP
     SEG --> RESP
-    ORQ -.->|"si la acción final es escalar"| EV["EventBus: EscalationCreated con clave de idempotencia"]
-    ORQ -.-> TR["TraceSink: trazas JSONL sin PII"]
+    ORQ -.->|"si la acción final es escalar"| EV["EventBus<br/>(EscalationCreated)"]
+    ORQ -.-> TR["TraceSink<br/>(JSONL sin PII)"]
 ```
 
 Orden real de las capas (ADR-012): 1) entrada vacía o no textual, `pedir_dato` sin LLM; 2) reglas deterministas de entrada (reembolso por encima de 500, queja de trato, facturación, legal, manipulación); 3) clasificador LLM, que **solo puede añadir** escalamientos y, si falla, se sigue con las reglas; 4) escalamiento redactado por el LLM sin tools, verificado y con plantilla de respaldo; 5) el retriever corre en cada turno (no depende de que el LLM decida buscar) y el LLM responde con tools y `tool_choice="any"`; la `accion_sugerida` del LLM solo se acepta si va hacia el lado más seguro; 6) verificación de salida siempre antes de entregar, con un reintento para `hecho_incorrecto` y otro para `canal_innecesario`; 7) fallo seguro transversal: cualquier error real termina en escalar. Cada turno que acaba en `escalar` publica un `EscalationCreated` por el `EventBus` y, si hay sink, escribe una traza JSONL con PII enmascarada.
