@@ -9,21 +9,21 @@ flowchart TD
     subgraph Entradas
         CLI["CLI de chat"]
         API["API HTTP (FastAPI)"]
-        MCP["Servidor MCP<br/>(solo tool de pedidos)"]
+        MCP["Servidor MCP<br/>(tool de pedidos)"]
     end
 
     CLI --> ORQ
     API --> ORQ
 
-    subgraph ORQ["Orquestador (procesar)"]
-        G1["Guardrail de entrada<br/>(determinista)"]
-        C1["Clasificador LLM<br/>(solo añade escalamientos)"]
+    subgraph ORQ["Orquestador"]
+        G1["Guardrail entrada<br/>(determinista)"]
+        C1["Clasificador LLM<br/>(solo añade escalar)"]
         ESC["Escalamiento<br/>(LLM o plantilla)"]
-        FA["Fuera de alcance<br/>(plantilla sin LLM)"]
-        RAG["RAG híbrido por turno<br/>+ reconsulta de pedidos"]
+        FA["Fuera de alcance<br/>(plantilla)"]
+        RAG["RAG híbrido<br/>por turno"]
         BUCLE["LLM con tools<br/>(bucle acotado)"]
-        VER["Verificación de salida<br/>(un reintento)"]
-        SEG["Fallo seguro<br/>(escalar a soporte)"]
+        VER["Verificación<br/>de salida"]
+        SEG["Fallo seguro<br/>(escalar)"]
 
         G1 --> C1
         C1 -->|"algo escala"| ESC
@@ -32,16 +32,16 @@ flowchart TD
         RAG --> BUCLE
         BUCLE --> VER
         ESC --> VER
-        BUCLE -.->|"error del LLM, tool o retriever"| SEG
+        BUCLE -.->|"error real"| SEG
     end
 
     MCP --> PED
-    BUCLE --> PED["OrderRepository<br/>(mock de pedidos)"]
-    RAG --> RET["Retriever<br/>(BM25 + embeddings + RRF)"]
-    VER --> RESP["Respuesta: texto, acción,<br/>fuentes, canal, trace_id"]
+    BUCLE --> PED["OrderRepository<br/>(mock)"]
+    RAG --> RET["Retriever<br/>(BM25 + embeddings)"]
+    VER --> RESP["Respuesta<br/>(acción y fuentes)"]
     FA --> RESP
     SEG --> RESP
-    ORQ -.->|"si la acción final es escalar"| EV["EventBus<br/>(EscalationCreated)"]
+    ORQ -.->|"si escala"| EV["EventBus<br/>(escalamiento)"]
     ORQ -.-> TR["TraceSink<br/>(JSONL sin PII)"]
 ```
 
