@@ -41,8 +41,8 @@ flowchart TD
     VER --> RESP["Respuesta<br/>(acción y fuentes)"]
     FA --> RESP
     SEG --> RESP
-    ORQ -.->|"si escala"| EV["EventBus<br/>(escalamiento)"]
-    ORQ -.-> TR["TraceSink<br/>(JSONL sin PII)"]
+    RESP -.->|"si acción = escalar"| EV["EventBus<br/>(escalamiento)"]
+    RESP -.->|"cada turno"| TR["TraceSink<br/>(JSONL sin PII)"]
 ```
 
 Orden real de las capas (ADR-012): 1) entrada vacía o no textual, `pedir_dato` sin LLM; 2) reglas deterministas de entrada (reembolso por encima de 500, queja de trato, facturación, legal, manipulación); 3) clasificador LLM, que **solo puede añadir** escalamientos y, si falla, se sigue con las reglas; 4) escalamiento redactado por el LLM sin tools, verificado y con plantilla de respaldo; 5) el retriever corre en cada turno (no depende de que el LLM decida buscar) y el LLM responde con tools y `tool_choice="any"`; la `accion_sugerida` del LLM solo se acepta si va hacia el lado más seguro; 6) verificación de salida siempre antes de entregar, con un reintento para `hecho_incorrecto` y otro para `canal_innecesario`; 7) fallo seguro transversal: cualquier error real termina en escalar. Cada turno que acaba en `escalar` publica un `EscalationCreated` por el `EventBus` y, si hay sink, escribe una traza JSONL con PII enmascarada.
